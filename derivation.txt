@@ -1,0 +1,177 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+
+\title{temp}
+\author{jtk296 }
+\date{June 2025}
+
+\begin{document}
+
+\maketitle
+
+
+Using ACS income data, there are three ways one could aggregate growth rates between spatial units. 
+Consider incomes $y_i $ in bins of population $p_i$ reported in number of households for spatial unit $k$. 
+We compute the average income of the unit as 
+
+\begin{equation*}
+ \bar y_k=\frac{\sum_iy_{ik}p_{ik}}{\sum_ip_{ik}}
+\end{equation*}
+
+We can then compute the growth rate for that spatial unit across time span $\Delta t=t^\prime-t$ as 
+
+\begin{equation*}
+    \bar\gamma_k=\frac{\Delta \ln y_k}{\Delta t}=\frac{\ln y_{kt^\prime}-\ln y_{kt}}{\Delta t}
+\end{equation*}
+
+For brevity, we will assume $\Delta t=1$, but can be in principle any value. Now, we can compute several population statistical quantities on the growth rates.
+The first is to compute the growth rate, averaged over the population at the initial time. 
+This is equivalent to treating the growth rate as a parameter plugged into a multiplicative growth process.
+The "aggregation" takes the following form, where $K$ denotes all the units of some parent unit
+
+\begin{equation}
+    \textrm E[\bar\gamma_k]=\textrm E[\Delta\ln\bar y_k]=\frac{\sum_kp_k\bar \gamma_k}{\sum_kp_k}
+\end{equation}
+
+The second option is to compute the aggregate growth rate, averaged over the log average incomes.  
+
+\begin{equation}\label{meanloggrowth}
+    \bar\gamma_K=\Delta\textrm E\big[\ln \bar y_k\big]=\sum_{k}\Bigg[\frac{p_{kt^\prime}\ln y_{kt^\prime}}{\sum_kp_{kt^\prime}}-\frac{p_{kt}\ln y_{kt}}{\sum_kp_{kt}}\Bigg]
+\end{equation}
+
+This is equivalent to taking the average of the difference in log resources, ie a mean log. The third option is to take the log mean, that is growth rate in income when averaged across the cumulative income bins.  
+
+
+
+Then the growth rate of the aggregate is simply
+
+\begin{equation}\label{logmeangrowth}
+    \bar\gamma_{\textrm E[y_k]}\equiv\Delta\ln\mathrm E[\bar y_k]=\ln\bar y_{Kt^\prime}-\ln \bar y_{Kt}
+\end{equation}
+
+There is also the income-weighted growth rate
+
+\begin{equation}
+    \textrm E[\bar\eta_k\bar y_{k0}]=\frac{\sum_{k}p_k\bar\gamma_k\bar y_k}{\sum_kp_k}
+\end{equation}
+The income-weighted growth rate can be computed from the income- weighted growth rate as 
+
+\begin{equation}
+   \bar\gamma_K^i=\frac{ \textrm E[\bar\eta_k\bar y_{k0}]}{\textrm E[\bar y_{k0}]}
+\end{equation}
+
+As we will show later, the denominator will be important for decompositions.
+\subsection{The Price Equation for Population Fitness}
+
+Consider a spatial unit $k$ with fitness $w_k=p_{kt^\prime}/p_{kt}$ fit. 
+The aggregate fitness of a the parent unit is computed as 
+
+\begin{equation*}
+    w_K=\frac{p_{Kt^\prime}}{p_{Kt}}=\frac{\sum_kp_{it^\prime}}{\sum_k p_{ik}}
+\end{equation*}
+
+Relative fitness $\bar w_i=w_i/w_K=f_{it^\prime}/f_{it}$, where the populatiuon fraction is given by $f=p_i/\sum_jp_k$. 
+
+The price equation states that.
+
+\begin{equation*}\label{populationprice}
+    \bar\gamma_K=\frac{1}{w_K}\textrm{cov}\big[w_k,\ln y_k\big]+\frac{1}{w_K}\textrm E
+    \big[w_k\bar\gamma_k
+    \big].
+\end{equation*}
+
+\begin{equation}\label{populationprice}
+    \Delta\mathrm E[\ln \bar y_k]=\frac{1}{w_K}\textrm{cov}\big[w_k,\ln y_k\big]+\frac{1}{w_K}\textrm E
+    \big[w_k\Delta \ln\bar y_k
+    \big].
+\end{equation}
+
+\noindent Here, we are treating log income as the trait, so that $\Delta y=\gamma$. 
+Practically, this means that implementing the Price equation requires the mean of log growth rates, or equation \ref{logmeangrowth}.
+This is counterintuitive, as incomes are the basic unit of analysis.
+We would therefore expect computing the growth of the mean, representing the change in the income distribution of a parent spatial unit aggregated over its children, might be the more intuitive for measuring phenomena across scale. However, plugging \ref{meanloggrowth} into \ref{populationprice} would result in numerical disagreement due to Jensen's inequality. 
+Therefore, the fundamental quantity of this calculation growth rate, aggregated across scales. As we will see later, this is not generally the case for analogous, Price-like decompositions. 
+
+Next, we define the Price equation between a spatial units, $K$, and its parent, $\kappa$.
+It is written similarly as 
+
+\begin{equation}\label{populationpricelevel2}
+    \bar\gamma_\kappa=\frac{1}{w_\kappa}\textrm{cov}\big[w_K,\ln y_K\big]+\frac{1}{w_\kappa}\textrm E
+    \big[w_k\bar\gamma_k\big].
+\end{equation}
+
+Here, $\ln y_K$ is an average over log resources, 
+
+\begin{equation*}
+\ln y_K\equiv\overline{\ln y_K}=\frac{\sum_{ik}p_{ik}\ln y_{ik}}{\sum_{ik}p_{ik}}
+\end{equation*}
+
+Which as an average of logs, is  quite different from  $\ln \bar y_k$, computed directly from the income distribution as an log of an average.
+However, after this first level of aggregation, computing the log-income term follows \ref{incomeaggregation}
+
+\begin{equation}\label{priceequation2level}
+    \bar\gamma_\kappa=\frac{1}{w_\kappa}\textrm{cov}_\kappa\big[w_K,\ln y_K\big]+\frac{1}{w_\kappa}\textrm E_\kappa
+    \Big[\textrm{cov}\big[w_k,\ln y_k\big]+\textrm E_K
+    \big[w_k\bar\gamma_k
+    \big]\Big],
+\end{equation}
+
+\noindent where we have added subscripts for expectation values. 
+
+\subsection{Price equation for Income Dynamics}
+
+So far we have derived various income and growth rate quantities, and shown how they apply (and don't) to an application of the Price equation for studying US ACS income data. 
+This is helpful for studying patterns of spatial agglomeration in cities.
+We can disaggregate the strength of selection across spatial scales, probing which spatial levels account for the most or least variation in net migration, and its covariance with income growth rates.
+
+We can use this framework to ask a similar question, but about incomes. 
+Particularly, we can probe the relative rate of increase in heterogeneous incomes across a city, gaining insight into the short term dynamics of neighborhood growth and the emergence of future inequality.
+
+We start by defining several statistical properties of growth rates.
+
+
+while the expectation value of growth rates is denoted $\textrm{E}[\gamma_k]=(\sum_kp_k\bar\gamma_k)/(\sum_{k}p_{k})$ and resources at the beginning of the period over which the growth rates are evaluated $\textrm E[y_0]=\sum_kp_k\bar y_k/\sum_{k^\prime}p_{k^\prime}$. 
+It was shown in KEMP 2022 that the income-averaged growth growth rate can be decomposed in terms of these expectation values as 
+
+\begin{equation*}
+    \textrm E[\bar\eta_k\bar y_{k0}]= \textrm E[\bar\eta_{k}]\textrm E[\bar y_{k0}]+\textrm{cov}[\bar\gamma_k,y_{k0}].
+\end{equation*}
+
+
+The equation then takes a form reminiscent of the price equation
+
+\begin{equation}\label{notpriceequation}
+\bar\gamma_K^i=\frac{\textrm E[\bar\eta_k\bar y_{k0}]}{\textrm E[\bar y_{k0}]}=\textrm E[\Delta\ln\bar y_k]+\frac{1}{\textrm E[\bar y_{k0}]}\textrm{cov}[\bar\gamma_k,\bar y_{k0}]
+\end{equation}
+
+So this result is kind of cool, because we show that the Price equation is valid for the mean of a log of a distribution, and this other equation is valid for the log of a mean. 
+
+As before, we define the growth rate at the second level of aggregation, denoted $K$.
+The expression is
+
+\begin{equation}\label{notpricesecondlevel}
+\bar\gamma_\kappa^i=\textrm E  [\bar \gamma_K^i]+\frac{1}{\textrm E[\bar y_{K0}]}\textrm{cov}[\bar\gamma_K^i,\bar y_{K0}]
+\end{equation}
+
+\noindent Here, all of the income terms are straightforward averages over distributions, indistinguishable from the average taken from the cumulative income distribution
+
+\begin{equation*}
+    \textrm E[\bar y_K]=\frac{\sum_{K}p_k\sum_kp_{k|K}\bar y_{k|K}}{\sum_Kp_k\sum_kp_{k|K}}=\frac{\sum_{Kk}p_{kK}\bar y_{kK}}{\sum_{kK}p_{kK}}.
+\end{equation*}
+
+\noindent The income-averaged growth rate is then computed from this quantity. The expectation over growth rates is computed as an average over the growth rates of each unit, which are taken from \ref{notpriceequation} 
+
+\begin{equation*}
+    \textrm E[\Delta\ln  \bar y_K]=\mathrm E[\bar\gamma_K^i]=\frac{\sum_Kp_K\bar\gamma_K^i}{\sum_Kp_K}.
+\end{equation*}
+
+\noindent The growth rate term in this expression is also the first term of the covariance. We can therefore substitute \ref{notpriceequation} into the first term of \ref{notpricesecondlevel} to get the two level decomposition of the aggregate growth rate (where subscripts are added back)
+
+\begin{equation}
+    \bar\gamma_\kappa^i=\textrm E_\kappa\bigg[\textrm E_K[\bar\gamma_k]+\frac{1}{\textrm E_K[\bar y_{k0}]}\textrm{cov}[\bar\gamma_k,\bar y_{k0}]\bigg]+\frac{1}{\textrm E_\kappa[\bar y_{K0}]}\textrm{cov}_\kappa[\bar\gamma_K^i,\bar y_{K0}]
+\end{equation}
+
+It should be noted that at the lowest level of aggregation, we use the standard growth rate of the individual unit.
+
+
+\end{document}

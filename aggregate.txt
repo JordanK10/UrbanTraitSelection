@@ -1,0 +1,193 @@
+# Rewrite Plan for Hierarchical Price Aggregation (aggregatePrice3.py)
+
+## I. Goal:
+# Implement the fully recursive hierarchical Price decomposition to calculate
+# the total change in average trait for a top-level unit (e.g., MSA or State)
+# as a sum of selection and transmission terms originating from different scales
+# within the hierarchy, as per the expanded equation:
+# gamma_MSA = Sel_MSA + E_MSA*[Sel_CT] + E_MSA*[E_CT*[Sel_CM]] + ... + E_MSA*[...E_TR*[DeltaZ_BG]]]
+
+## II. Input Data Requirements:
+# Target N-year period (e.g., TARGET_N = 9).
+
+# 1. From census_data1.pkl (Output of saveCensusDataV2.py):
+#    - Structure: dict[year][agg_level] -> DataFrame
+#    - Needed per DataFrame:
+#        - Index: Unit identifier.
+#        - Columns:
+#            - Population: 'B01003_001E'
+#            - Income bin counts: 'B19001_002E' through 'B19001_017E'.
+#            - Geographic identifiers: 'state', 'county', 'tract' (if present).
+#    - `income_vars` list and `xbins_values_series` for calculating AvgLogInc.
+
+# 2. From analysis_Price2.pkl (Output of procPrice2.py):
+#    - Structure: DataFrame
+#    - Needed per row (after filtering for TARGET_N):
+#        - 'UnitName', 'Agg', 'Year' (end year), 'FirstYear' (start year), 'N'.
+#        - 'ParentState', 'ParentCounty', 'ParentCommunity'.
+#        - 'AvgLogInc' (will be AvgLogIncFinal for the unit).
+#        - 'Population' (will be PopFinal for the unit).
+
+## III. Overall Workflow & Data Structures:
+
+# Step 0: Configuration & Setup
+#   - Define `TARGET_N`.
+#   - Define hierarchy: `HIERARCHY_LEVELS = ['bg', 'tr', 'cm', 'ct', 'st']` (Lowest to highest).
+#     The lowest level (e.g., 'bg') is the ultimate base. The highest (e.g., 'st') is the target for the final sum.
+#   - Define parent identifier columns for grouping:
+#     `child_to_parent_id_col_map = {'bg': 'TempTractID', 'tr': 'ParentCommunity', 'cm': 'ParentCounty', 'ct': 'ParentState'}`.
+#     (Note: `TempTractID` needs to be robustly created/available in the 'bg' level data, linking BGs to their Tract parent).
+#   - Load `census_data1.pkl` and `analysis_Price2.pkl`.
+#   - Load/define `income_vars` and `xbins_values_series`.
+
+# Step 1: Prepare Base-Level Data (`df_level_outputs`)
+#   - Create an empty dictionary `level_outputs = {}` to store DataFrames of calculated terms for each level.
+#   - Let `L_BASE = HIERARCHY_LEVELS[0]` (e.g., 'bg').
+#   - Create `df_base_units`:
+#     - Filter `analysis_df` for `Agg == L_BASE` and `N == TARGET_N`.
+#     - For each unit in this selection:
+#       - Fetch/Calculate `PopInitial_L_BASE` from `census_data1.pkl` at `FirstYear`.
+#       - Fetch/Calculate `AvgLogIncInitial_L_BASE` from `census_data1.pkl` at `FirstYear`.
+#       - Rename `Population` from `analysis_df` to `PopFinal_L_BASE`.
+#       - Rename `AvgLogInc` from `analysis_df` to `AvgLogIncFinal_L_BASE`.
+#       - Calculate `DeltaZ_Direct_L_BASE = AvgLogIncFinal_L_BASE - AvgLogIncInitial_L_BASE`. This is the $\gamma_{BG}$ or $\Delta \bar{z}_{c}^{(L_{BASE})}$ from the LaTeX.
+#     - `df_base_units` should contain: `UnitName`, `Agg` (=L_BASE), `PopInitial_L_BASE`, `PopFinal_L_BASE`, `AvgLogIncInitial_L_BASE`, `DeltaZ_Direct_L_BASE`, and parent identifiers needed for the next level up (e.g., `TempTractID` if L_BASE is 'bg').
+#     - Store this as `level_outputs[L_BASE] = df_base_units`.
+
+# Step 2: Iterative Calculation Up the Hierarchy
+#   - Loop `i` from 1 to `len(HIERARCHY_LEVELS) - 1`:
+#     - `current_child_level_name = HIERARCHY_LEVELS[i-1]` (e.g., 'bg', then 'tr', ...)
+#     - `current_parent_level_name = HIERARCHY_LEVELS[i]` (e.g., 'tr', then 'cm', ...)
+#     - `parent_id_col = child_to_parent_id_col_map[current_child_level_name]`.
+#
+#     - A. Get Child Data for this Iteration:
+#        - `df_children_current_iter = level_outputs[current_child_level_name].copy()`.
+#        - Rename columns in `df_children_current_iter` for clarity within `apply` function:
+#          - `PopInitial_LEVELNAME` -> `Child_PopInitial`
+#          - `PopFinal_LEVELNAME` -> `Child_PopFinal`
+#          - `AvgLogIncInitial_LEVELNAME` -> `Child_AvgLogIncInitial`
+#          - `DeltaZ_Calculated_LEVELNAME` (this would be `DeltaZ_Direct_L_BASE` for the first iteration, or `DeltaZ_Hierarchical_Parent` from the previous iteration) -> `Child_DeltaZ_Input_For_Transmission`
+#        - Calculate child fitness: `df_children_current_iter['Child_w_C'] = Child_PopFinal / Child_PopInitial`. Handle Inf/NaN.
+#        - Ensure `parent_id_col` exists and is clean in `df_children_current_iter`. Drop rows with missing `parent_id_col` or essential child inputs.
+
+#     - B. Group by `parent_id_col` and Apply `calculate_price_terms_for_parent_unit`:
+#        - `df_parent_level_calculated_terms = df_children_current_iter.groupby(parent_id_col, observed=True, dropna=True).apply(calculate_price_terms_for_parent_unit, current_parent_level_name=current_parent_level_name)`.
+#          (The `apply` function will also need `current_child_level_name` to fetch grandparent IDs if needed, or pass them child_group_df.)
+#        - `calculate_price_terms_for_parent_unit(child_group_df, current_parent_level_name)` will:
+#          - Calculate `p_C` (initial pop proportion of each child in `child_group_df`).
+#          - Calculate `Parent_AvgLogIncInitial_Agg` (this is $\bar{Z}_{u}^{(L_i)}(t_0)$).
+#          - Calculate `Parent_w_bar_Agg` (this is $\bar{\omega}_{u}^{(L_i)}$).
+#          - Calculate `SelectionTerm_Parent` (this is $\text{Sel}_{u}^{(L_i)}$).
+#          - Calculate `TransmissionTerm_Parent` (this is $\text{Trans}_{u}^{(L_i)}$ using `Child_DeltaZ_Input_For_Transmission`).
+#          - Calculate `DeltaZ_Hierarchical_Parent = SelectionTerm_Parent + TransmissionTerm_Parent`.
+#          - Aggregate `Child_PopInitial` to `Parent_PopInitial_Agg`.
+#          - Aggregate `Child_PopFinal` to `Parent_PopFinal_Agg`.
+#          - Carry over necessary grandparent identifiers for this parent unit (e.g., if parent is 'cm', carry its 'ParentCounty' and 'ParentState').
+#          - Return a pd.Series with these calculated parent terms.
+#        - Reset index of `df_parent_level_calculated_terms`. Rename `parent_id_col` to `UnitName`. Set `Agg` to `current_parent_level_name`.
+#        - Rename output columns for consistency, e.g., `Parent_PopInitial_Agg` -> `PopInitial_current_parent_level_name`. `DeltaZ_Hierarchical_Parent` -> `DeltaZ_Calculated_current_parent_level_name`.
+
+#     - C. Store Results:
+#        - `level_outputs[current_parent_level_name] = df_parent_level_calculated_terms`.
+
+# Step 3: Assemble the Final Sum of Terms for the Top Level
+#   - Let `L_TOP = HIERARCHY_LEVELS[-1]` (e.g., 'st').
+#   - `df_final_msa_terms = pd.DataFrame(index=level_outputs[L_TOP]['UnitName'].unique())`. Index is MSA/State IDs.
+#   - Term 1 (Selection at Top Level):
+#     - `df_final_msa_terms['Sel_TopLevel'] = level_outputs[L_TOP].set_index('UnitName')['SelectionTerm_Parent']`.
+#
+#   - Iteratively calculate weighted transmission of selection terms from lower levels:
+#     - `current_transmission_component = level_outputs[L_TOP].set_index('UnitName')['TransmissionTerm_Parent']`. (This is $E_{L\_TOP}^*[\Delta \bar{z}_{\text{child of L\_TOP}}]$)
+#
+#     - For `j` from `len(HIERARCHY_LEVELS)-2` down to 1 (e.g., from 'ct' level down to 'tr' level if 'bg' is base):
+#       - `level_name_for_sel_term = HIERARCHY_LEVELS[j]` (e.g., 'ct')
+#       - `level_name_for_child_of_sel = HIERARCHY_LEVELS[j-1]` (e.g., 'cm')
+#       - Extract $\text{Sel}_{\text{level\_name\_for\_sel\_term}}$ from `level_outputs[level_name_for_sel_term]`.
+#       - Extract the fitness weighting factor used to calculate `current_transmission_component` at the level *above* `level_name_for_sel_term`. This factor is $p_c(t_0) \frac{\omega_c}{\bar{\omega}_{parent}}$ where $c$ is at `level_name_for_sel_term`.
+#       - The term to add is: (fitness weighting factor from level above) * $\text{Sel}_{\text{level\_name\_for\_sel\_term}}$. This needs careful alignment by parent IDs.
+#       - This is tricky. A more direct way:
+#         - Let `df_top_level = level_outputs[L_TOP]`. This contains `UnitName` (State), `SelectionTerm_Parent` ($S_{ST}$), `TransmissionTerm_Parent` ($E_{ST}^*[\Delta Z_{CT}]$).
+#         - `df_final_msa_terms['Term1_Sel_ST'] = df_top_level.set_index('UnitName')['SelectionTerm_Parent']`.
+#         - Now consider $E_{ST}^*[\Delta Z_{CT}]$. $\Delta Z_{CT} = S_{CT} + E_{CT}^*[\Delta Z_{CM}]$.
+#         - So, $E_{ST}^*[\Delta Z_{CT}] = E_{ST}^*[S_{CT}] + E_{ST}^*[E_{CT}^*[\Delta Z_{CM}]]$.
+#         - We need to calculate $E_{L_i}^*[S_{L_{i+1}}]$ for each level $i$.
+#         - This means taking the `SelectionTerm_Parent` calculated for each unit at $L_{i+1}$, and then applying the $E_{L_i}^*[\cdot]$ operation (i.e., weighted average using $p_c \omega_c / \bar{\omega}_{parent}$ where $c$ are units of $L_{i+1}$ and parent is unit of $L_i$).
+#
+#   - Revised approach for assembling terms (Store weighted terms at each step):
+#     - When calculating `df_parent_level_calculated_terms` in Step 2B for parent $u$ at $L_i$ with children $c$ at $L_{i+1}$:
+#       - Store not just `SelectionTerm_Parent` ($S_u^{(L_i)}$)
+#       - But also store the weighted sum of its children's selection terms: $\sum_{c \in u} p_c \frac{\omega_c}{\bar{\omega}_u} S_c^{(L_{i+1})}$
+#       - And the weighted sum of its children's next transmission component: $\sum_{c \in u} p_c \frac{\omega_c}{\bar{\omega}_u} (\text{WeightedTransChildSel}_{c}^{(L_{i+1})} + \dots)$
+#     - This seems more robust. Each level $L_i$ output DataFrame will have columns for:
+#       - `UnitName`, `Agg`
+#       - `Sel_At_This_Level` (Direct selection term calculated at this level for this unit)
+#       - `Transmitted_Sel_From_ChildLevel` (The $E_{ThisLevel}^*[Sel_{ChildLevel}]$)
+#       - `Transmitted_Sel_From_GrandchildLevel` (The $E_{ThisLevel}^*[E_{ChildLevel}^*[Sel_{GrandchildLevel}]]$)
+#       - ...
+#       - `Transmitted_DeltaZ_From_BaseLevel` (The $E_{ThisLevel}^*[ \dots E_{LevelAboveBase}^*[\Delta Z_{BaseLevel}] \dots ]$)
+#       - `Total_DeltaZ_This_Level` (Sum of all above terms, should match the directly calculated $\Delta Z$ for this unit based on its children's initial/final traits).
+#     - The final output for $L_{TOP}$ will then directly contain all the additive components.
+
+# Step 4: Sanity Checks and Saving
+#   - For each unit at each level in `level_outputs`, check if `DeltaZ_Hierarchical_Parent` approx equals `SelectionTerm_Parent + TransmissionTerm_Parent`.
+#   - The top-level DataFrame (e.g., `level_outputs['st']`) will contain the decomposed sum.
+#   - Save the relevant DataFrames, especially the top-level one with the decomposed terms.
+
+## IV. Key Function: `calculate_price_terms_for_parent_unit`
+#   - `calculate_price_terms_for_parent_unit(child_group_df, current_parent_level_name, current_child_level_name, grandparent_id_cols_to_fetch_map)`:
+#     - Inputs:
+#       - `child_group_df`: DataFrame of all children units for ONE parent. Must contain:
+#         - `Child_PopInitial`, `Child_PopFinal`, `Child_AvgLogIncInitial`.
+#         - `Child_w_C` (child fitness, pre-calculated).
+#         - `Sel_At_This_ChildLevel` (Selection term calculated *for* the child unit, if child is not base).
+#         - `Transmitted_Sel_From_GrandchildLevel_To_Child` (etc., all transmitted terms already calculated for the child unit).
+#         - `Transmitted_DeltaZ_From_BaseLevel_To_Child`.
+#         - Grandparent identifiers.
+#     - Calculates:
+#       - `p_C`, `Parent_AvgLogIncInitial_Agg`, `Parent_w_bar_Agg`.
+#       - `Sel_At_This_ParentLevel` (direct selection for this parent based on its children's initial traits).
+#       - `Transmitted_Sel_From_ChildLevel_To_Parent` = $\sum p_C (\omega_C / \bar{\omega}_P) Sel\_At\_This\_ChildLevel$.
+#       - `Transmitted_Sel_From_GrandchildLevel_To_Parent` = $\sum p_C (\omega_C / \bar{\omega}_P) Transmitted\_Sel\_From\_GrandchildLevel\_To\_Child$.
+#       - ...and so on for all terms inherited from the child.
+#       - `Transmitted_DeltaZ_From_BaseLevel_To_Parent` = $\sum p_C (\omega_C / \bar{\omega}_P) Transmitted\_DeltaZ\_From\_BaseLevel\_To\_Child$.
+#       - `Parent_PopInitial_Agg`, `Parent_PopFinal_Agg`.
+#       - `Total_DeltaZ_This_ParentLevel` = Sum of `Sel_At_This_ParentLevel` and all `Transmitted_` terms.
+#     - Returns a pd.Series with these terms, `current_parent_level_name` as `Agg`, and carried-over grandparent IDs.
+
+## V. Refined Recursive Calculation Logic (Conceptual for `main` loop):
+
+# `level_outputs = {}`
+#
+# 1. **Base Level (e.g., 'bg'):**
+#    - `df_base = prepare_base_level_data(L_BASE, ...)`
+#    - `df_base['Sel_At_This_Level'] = np.nan` (No selection *within* the base unit itself from lower components)
+#    - For all deeper `Transmitted_` terms, also `np.nan`.
+#    - `df_base['Transmitted_DeltaZ_From_BaseLevel_To_ThisLevel'] = df_base['DeltaZ_Direct_L_BASE']`
+#    - `df_base['Total_DeltaZ_This_Level'] = df_base['DeltaZ_Direct_L_BASE']`
+#    - `level_outputs[L_BASE] = df_base`
+
+# 2. **Loop for Parent Levels (e.g., 'tr', then 'cm', ... up to 'st'):**
+#    - `parent_level_name = HIERARCHY_LEVELS[i]`
+#    - `child_level_name = HIERARCHY_LEVELS[i-1]`
+#    - `df_child_data_for_aggregation = level_outputs[child_level_name].copy()`
+#    - Prepare `df_child_data_for_aggregation` (rename cols, calculate child fitness `Child_w_C`).
+#    - `df_parent_output = df_child_data_for_aggregation.groupby(parent_id_col).apply(calculate_price_terms_for_parent_unit, parent_level_name, child_level_name, ...)`
+#    - `level_outputs[parent_level_name] = df_parent_output`
+
+# The `calculate_price_terms_for_parent_unit` function becomes central. It calculates the new `Sel_At_This_ParentLevel` and correctly applies the $E_{Parent}^*[\cdot]$ (i.e., $\sum p_C \omega_C / \bar{\omega}_P$) to each of the terms (`Sel_At_ChildLevel`, `Transmitted_Sel_From_GrandchildLevel_To_Child`, etc.) that were passed up from the `child_group_df`.
+
+## VI. Final Output Structure:
+# The DataFrame `level_outputs[L_TOP]` (e.g., `level_outputs['st']`) will have rows for each state.
+# Columns will include:
+# - `UnitName` (State ID/Name)
+# - `Agg` ('st')
+# - `Sel_At_This_Level` (This is $S_{ST}$ or Term 1)
+# - `Transmitted_Sel_From_ct_To_st` (This is $E_{ST}^*[S_{CT}]$ or Term 2)
+# - `Transmitted_Sel_From_cm_To_st` (This is $E_{ST}^*[E_{CT}^*[S_{CM}]]$ or Term 3)
+# - `Transmitted_Sel_From_tr_To_st` (Term 4)
+# - `Transmitted_DeltaZ_From_bg_To_st` (Term 5, original $\gamma_{BG}$ propagated up)
+# - `Total_DeltaZ_This_Level` (Sum of all these terms, should be $\gamma_{ST}$)
+# - `PopInitial_st_Agg`, `PopFinal_st_Agg`, `AvgLogIncInitial_st_Agg`.
+
+This revised plan focuses on building up the sum of terms correctly at each level.
+The "Transmitted\_" column names try to capture which original selection term (or base deltaZ) is being referred to, after being weighted up through the hierarchy.

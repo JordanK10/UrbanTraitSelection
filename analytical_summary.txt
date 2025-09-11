@@ -1,0 +1,110 @@
+# Analytical Framework Summary
+
+This document provides a detailed summary of the analytical concepts, metrics, and interpretive frameworks developed for the multi-level spatial growth rate decomposition analysis.
+
+## 1. Core Concepts & Methodology
+
+### 1.1. Dual Decomposition Paths
+
+The analysis is built on two parallel, complementary decomposition methods that describe spatial dynamics from different perspectives:
+
+*   **The Population Path (`_gro` models):** Based on the Price Equation, this path uses the **average of log-incomes (`E[ln(y)]`)** as its core trait. It is fundamentally a demographic model. It explains how the average log-income of a parent region changes due to the population sorting and mobility of its constituent child units. This path answers the question: "How are population shifts between neighborhoods with different characteristics affecting the overall character of the region?"
+
+*   **The Income Path (`_inc` models):** Based on the decomposition in Kemp & Bettencourt 2022, this path uses the **log of average income (`ln(E[y])`)** as its core trait. It is fundamentally an economic model that tracks the growth rate of the total economic output of a region. It decomposes this growth into two parts: the direct, population-weighted growth of its child units and a covariance term that measures how income growth is correlated with income levels.
+
+### 1.2. The "Pure Recursive" Model
+
+A critical methodological feature is the "pure recursive" definition of growth for all spatial levels above the absolute base (e.g., block groups). The growth rate of a parent unit (e.g., a county) is not calculated empirically from its own data. Instead, it is **defined as the sum of its own selection effect and the transmitted effects from its children**.
+
+This ensures that the entire system is perfectly decomposable and that the growth at one level is mathematically consistent with the dynamics occurring at the level below it. It allows us to trace the impact of phenomena from the lowest level all the way to the top.
+
+## 2. The Three-Tiered Metric System
+
+To interpret the complex decomposition results, we use a system of three distinct metrics, each providing a unique lens on the data.
+
+*   **PNC (Parent-Normalized Contribution) - The "What Happened" Metric:**
+    *   **Question Answered:** "Of the final, observed growth rate of a parent unit, what percentage came from this specific component?"
+    *   **Calculation:** (Raw value of a component) / (Total growth rate of its parent unit).
+    *   **Interpretation:** PNC measures the **realized empirical impact** of a component on the next level up in the hierarchy. It is the "bottom line" that allows for a direct, scale-adjusted comparison of how much different spatial levels and effects contributed to a real-world outcome (e.g., the state's final growth rate).
+
+*   **LDR (Local Dominance Ratio) - The "How it Happened" Metric:**
+    *   **Question Answered:** "For any single spatial unit, what is the *mechanism* of its growth? Is it generating its own growth internally (high Selection LDR) or acting as a conduit for growth from its children (high Transmitted Growth LDR)?"
+    *   **Calculation:** (Absolute value of a single component) / (Sum of the absolute values of *all* components for that unit).
+    *   **Interpretation:** LDR reveals the **composition of local forces** for a single spatial unit. It provides a "balance of power" snapshot, ignoring the rest of the hierarchy to tell the story of that one specific place.
+
+*   **Aggregated LDR ("Total Selection Dominance") - The "Why it Averaged Out" Metric:**
+    *   **Question Answered:** "The net selection effect for all counties might be near zero, but is this because all counties are quiet, or because some are booming while others are shrinking? How much variation is being hidden by aggregation?"
+    *   **Calculation:** It can be calculated for a unit as `100% - (LDR of the Transmitted Growth term)`. We then analyze the population-weighted mean and standard deviation of this metric across all units at a given spatial level.
+    *   **Interpretation:** This metric quantifies the **"internal churning" or "hidden volatility"** within a spatial level. A high value indicates that the net effect seen at the parent level is an average that masks a huge amount of dynamic, opposing effects in the child units below.
+
+## 3. The 2x2 and 4D Diagnostic Frameworks
+
+By combining the outputs of the decomposition, we can create powerful diagnostic tools for classifying urban dynamics.
+
+### 3.1. The 2x2 Covariance Framework
+
+This framework plots two key covariance terms against each other to diagnose the nature of spatial change.
+
+*   **Dimension 1 (X-axis): Population Sorting `Cov(Pop Growth, Income Level)`**
+    *   **Positive:** Pro-Rich Sorting. Population flows to wealthier areas.
+    *   **Negative:** Pro-Poor Sorting. Population flows to poorer, more affordable areas.
+
+*   **Dimension 2 (Y-axis): Inequality Trend `Cov(Income Growth, Income Level)`**
+    *   **Positive:** Divergent Growth. Rich areas' incomes grow faster, widening spatial inequality.
+    *   **Negative:** Convergent Growth. Poor areas' incomes grow faster, narrowing spatial inequality.
+
+This creates four major quadrants:
+
+1.  **Quadrant 1 (Top-Right): Divergent Segregation (+,+):** The classic "rich get richer" scenario. Wealth and population concentrate in elite enclaves.
+2.  **Quadrant 2 (Top-Left): Consolidating Wealth (-,+):** A spatial mismatch. Wealth is generated in high-income areas, but population growth is forced into lower-income areas, often due to housing costs.
+3.  **Quadrant 3 (Bottom-Left): Equitable Growth & Gentrification (-,-):** The statistical signature of rapid transformation in lower-income areas, driven by an influx of new residents and investment.
+4.  **Quadrant 4 (Bottom-Right): Hollowing Out (+,-):** A counter-intuitive dynamic where incomes converge (often due to decline in wealthy areas) but population still flows to high-status areas, suggesting non-economic factors are at play.
+
+### 3.2. The 16-Case Typology (4D Framework)
+
+This extends the 2x2 framework by adding two more dimensions based on the region's aggregate performance.
+
+*   **Dimension 3: Overall Population Growth `Δ Pop_total`**
+*   **Dimension 4: Overall Economic Growth `Δ Income_total`**
+
+This creates 16 specific, testable hypotheses about urban dynamics:
+
+---
+**MAJOR QUADRANT 1: Divergent Segregation (Pro-Rich Sorting, Widening Inequality)**
+*   1.  **Growing City, Booming Economy:** Exclusive Boom.
+*   2.  **Shrinking City, Booming Economy:** Gilded Contraction (wealth consolidates in elite "lifeboat" neighborhoods).
+*   3.  **Growing City, Receding Economy:** Destabilizing Influx (population chases the ghost of a prior boom).
+*   4.  **Shrinking City, Receding Economy:** Managed Decline (the wealthy decline slowest).
+
+---
+**MAJOR QUADRANT 2: Consolidating Wealth (Pro-Poor Sorting, Widening Inequality)**
+*   5.  **Growing City, Booming Economy:** Expensive Boom & Sprawl.
+*   6.  **Shrinking City, Booming Economy:** Wealth Fortress (NIMBYism pushes all population growth to poor areas).
+*   7.  **Growing City, Receding Economy:** Influx for Affordability (city attracts residents but not jobs).
+*   8.  **Shrinking City, Receding Economy:** Residual Concentration (only the most affordable areas show population stability).
+
+---
+**MAJOR QUADRANT 3: Equitable Growth & Gentrification (Pro-Poor Sorting, Narrowing Inequality)**
+*   9.  **Growing City, Booming Economy:** Equitable Urban Renaissance (the "gold standard" scenario).
+*   10. **Shrinking City, Booming Economy:** Classic Gentrification (city-wide population loss masks intense growth in a few "hip" areas).
+*   11. **Growing City, Receding Economy:** Shared Decline (income convergence is driven by the rich getting poorer).
+*   12. **Shrinking City, Receding Economy:** Pockets of Hope (targeted revitalization works against the regional trend).
+
+---
+**MAJOR QUADRANT 4: Hollowing Out (Pro-Rich Sorting, Narrowing Inequality)**
+*   13. **Growing City, Booming Economy:** Middle-Class Expansion (middle class integrates wealthier areas).
+*   14. **Shrinking City, Booming Economy:** Flight to Perceived Stability (amenities, not income, drive sorting).
+*   15. **Growing City, Receding Economy:** Aspirational Bubble (housing demand in prestige areas is disconnected from the weak economy).
+*   16. **Shrinking City, Receding Economy:** Decline of the Middle (middle-class areas empty out most severely).
+
+## 4. Framework Extensibility: Testing Causal Hypotheses
+
+The true power of this framework lies in its flexibility. The "trait" variable in the covariance terms is plug-and-play. Instead of using `Income Level` to test what drives population sorting, one can substitute any other quantifiable characteristic of a spatial unit.
+
+*   **Example 1: Test for Productivity.** Trait = `GDP per capita`.
+    *   `Cov(Population Growth, Productivity)` > 0 would indicate people are successfully moving to the most economically productive areas.
+
+*   **Example 2: Test for Investment.** Trait = `Infrastructure Growth Rate`.
+    *   `Cov(Population Growth, Infrastructure Growth)` > 0 would indicate that people are "following the cranes" and moving to areas receiving the most investment.
+
+By testing various traits (e.g., educational attainment, housing age, crime rates, access to parks), the model can be used to move from **describing** the patterns of spatial change to statistically **explaining the drivers** of those patterns. 
