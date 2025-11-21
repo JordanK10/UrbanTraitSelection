@@ -20,11 +20,18 @@ git add . \
     ':!*.csv' \
     ':!*.pkl' \
     ':!*.key' \
-    ':!*.pdf'
-    ':!*.RDataTmp'
+    ':!*.pdf' \
+    ':!*.RDataTmp' \
+    ':!*.shp' \
+    ':!*.geojson' \
+    ':!*.dbf' \
+    ':!*.shx' \
+    ':!**/.RDataTmp'
 
-# Manually unstage the specific forbidden file
-git restore --staged census_data1.pkl 2>/dev/null
+# Manually unstage the specific forbidden files
+git restore --staged calculation_scripts/data/census_data1.pkl 2>/dev/null
+git restore --staged '**/.RDataTmp' 2>/dev/null
+git restore --staged 'finalized_figures/figures14-19_INET' 2>/dev/null
 
 # Commit and push
 git commit -m "$COMMIT_MSG"
