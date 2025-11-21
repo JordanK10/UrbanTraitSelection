@@ -1,177 +1,1032 @@
-\documentclass{article}
-\usepackage{graphicx} % Required for inserting images
+\documentclass[%
+ twocolumn,reprint,
+%superscriptaddress,
+%groupedaddress,
+%unsortedaddress,
+%runinaddress,
+%frontmatterverbose, 
+%preprint,
+%preprintnumbers,
+%nofootinbib,
+%nobibnotes,
+%bibnotes,
+ amsmath,amssymb,
+ aps
+%pra,
+%prb,
+%rmp,
+%prstab,
+%prstper,
+%floatfix,
+]{revtex4-2}
 
-\title{temp}
-\author{jtk296 }
-\date{June 2025}
+\usepackage{tabularx} % put this in your preamble
+
+\usepackage{graphicx}% Include figure files
+\usepackage{dcolumn}% Align table columns on decimal point
+\usepackage{bm}% bold math
+\usepackage{bbm}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+
+
+% \usepackage{hyperref}% add hypertext capabilities
+%\usepackage[mathlines]{lineno}% Enable numbering of text and display math
+%\linenumbers\relax % Commence numbering lines
+
+%\usepackage[showframe,%Uncomment any one of the following lines to test 
+%%scale=o.7, marginratio={1:1, 2:3}, ignoreall,% default settings
+%%text={7in,10in},centering,
+%%margin=1.5in,
+%%total={6.5in,8.75in}, top=1.2in, left=0.9in, includefoot,
+%%height=10in,a5paper,hmargin={3cm,0.8in},
+%]{geometry}
 
 \begin{document}
+
+\preprint{APS/123-QED}
+
+\title{Spatial Selection and the Multiscale Dynamics of Urban Change}
+
+\author{Jordan T. Kemp$^{1,2,3*}$, Laura Fürsich$^{4,5}$ and Lu\'is M. A. Bettencourt$^{3,6}$}
+\affiliation{$^1$Institute for New Economic Thinking at the Martin School, University of Oxford, Oxford, OX1 3UQ, UK}
+\affiliation{$^2$School of Geography and the Environment, University of Oxford, Oxford OX1 3QY, UK}
+\affiliation{$^3$University of Chicago, Department of Ecology and Evolution, Chicago IL, 60637, USA}
+\affiliation{$^4$University of Chicago, Mansueto Institute for Urban Innovation, Chicago IL, 60637, USA}
+\affiliation{$^5$University of Chicago, Department of Sociology, Chicago IL, 60637, USA}
+\affiliation{$^6$Santa Fe Institute, Santa Fe NM, 87501, USA}
+\affiliation{$^*$corresponding author: Jordan Kemp (jordan.kemp@ouce.ox.ac.uk)}
+
+
+
+\begin{abstract}
+Growth is a multi-layered phenomenon in human societies, composed of socioeconomic and demographic change at many different scales. Yet, standard macroeconomic indicators average over most of these processes, blurring the spatial and hierarchical heterogeneity driving people's choices and experiences.  To address this gap, we introduce here a framework based on the Price equation to decompose aggregate growth exactly into endogenous and selection effects across nested spatial scales. We illustrate this approach with population and income data from the Chicago metropolitan area (2014–2019) and show that both growth rates and spatial selection effects are most intense at local levels, fat-tailed and spatially correlated.
+We also find that selection, defined as the covariance between prevailing income and relative population change, is concentrated in few spatial units and exhibits scaling behavior when grouped by county. Despite the intensity of local sorting, selection effects largely cancel in the aggregate, implying that fast heterogeneous micro-dynamics can yield deceptively stable macro-trends.  By treating local spatial units (neighborhoods) as evolving subpopulations under selection, we demonstrate how methods from complex systems provide new tools to classify residential selection processes, such as abandonment and gentrification, in an urban sociological framework.  This approach is general and applies to any other nested economic systems such as networks of production, occupations, or innovation enabling a new mechanistic understanding of compositional change and growth across scales of organization.
+\end{abstract}
 
 \maketitle
 
 
-Using ACS income data, there are three ways one could aggregate growth rates between spatial units. 
-Consider incomes $y_i $ in bins of population $p_i$ reported in number of households for spatial unit $k$. 
-We compute the average income of the unit as 
+\section*{Introduction}
 
-\begin{equation*}
- \bar y_k=\frac{\sum_iy_{ik}p_{ik}}{\sum_ip_{ik}}
-\end{equation*}
+Growth is a fundamental measure of change in modern human societies.  While the social value of economic growth remains contested~\cite{jackson2009prosperity}, it is commonly used to gauge a society's vitality, its ability to produce and consume goods and services and, over time, to improve its stability and social welfare \cite{barro1991economic}. 
+Beyond  economics,  growth can reveal compositional changes in populations \cite{hairston1970natural,lee2002demographic}, and encode latent features of economic agents' environments~\cite{kemp2023learning}, making it broadly useful for studying sociodemographic dynamics.
 
-We can then compute the growth rate for that spatial unit across time span $\Delta t=t^\prime-t$ as 
+Growth and change occur at multiple scales, often amplifying or mitigating inequalities across populations~\cite{cholli2024understanding}. For example, there are typically stronger income inequalities between urban neighborhoods than within them~\cite{bettencourt2025decoding}. Consequently, policy guided primarily by aggregate indicators such as total wages or GDP can produce unforeseen distributional effects felt acutely by disadvantaged households. Population aggregation in policy studies often averages away local socioeconomic dynamics relevant to individual households~\cite{glaeser1995economic}, undermining any theory of real agents responsive to heteogeneous local environmental change~\cite{kemp2023learning}. 
+Crucially, such local and relative variations in income and population dominate socioeconomic dynamics in developed societies, where overall growth is slow.
+Only recently has detailed and consistent small-scale data made it possible to empirically understand these dynamics.
 
-\begin{equation*}
-    \bar\gamma_k=\frac{\Delta \ln y_k}{\Delta t}=\frac{\ln y_{kt^\prime}-\ln y_{kt}}{\Delta t}
-\end{equation*}
+As more disaggregated data become available and improve, however, new challenges arise.
+Multi-scalar analysis of income growth, for example, remains difficult due to several interrelated factors. Data are embedded in sociopolitical contexts and reflect local regulatory environments that vary by local constituency (municipality)~\cite{oosterhaven2024disaggregating}.
+Moreover, empirical growth depends on dynamic processes such as the spatial sorting of heterogeneous populations, capital, and incomes~\cite{maestas2016impact,bloom2003demographic}, making results highly sensitive to different aggregation methods~\cite{hulten2010growth,melitz2015decomposition}.
 
-For brevity, we will assume $\Delta t=1$, but can be in principle any value. Now, we can compute several population statistical quantities on the growth rates.
-The first is to compute the growth rate, averaged over the population at the initial time. 
-This is equivalent to treating the growth rate as a parameter plugged into a multiplicative growth process.
-The "aggregation" takes the following form, where $K$ denotes all the units of some parent unit
+%Neighborhood change is often described as a slow unfolding over years, yet an estimated 20\% of residents turn over annually in many urban areas. Such shifts may be endogenous, as in births, deaths, or wage gains among incumbents, or exogenous, as in migration. For example, population sorting along income or identity can rapidly reshape composition, while homophily among long-term residents can entrench neighborhood stratification even as individuals change. Capital investment or changing land use may further accelerate migration, income growth, or other growth processes in spatially correlated and scale-dependent ways. Simple averaging ignores these effects, leaving invisible in national statistics information about local patterns of well-being \cite{sampson2012great}, inequality \cite{durlauf1996neighborhood}, and intergenerational mobility \cite{cholli2024understanding}. 
+%Standard measures of inequality, like aggregate wages or the Gini index, reduce them to temporal snapshots, obscuring how redistribution \cite{bouchaud2013crises} and migration \cite{deaton2013great} shape neighborhood sorting and the concentration of gains, patterns that aggregate indices like GDP or the Gini compress into misleading averages.
 
+Multi-scale spatial accounting is therefore essential to studying income dynamics in cities~\cite{bettencourt2025decoding,duranton2004micro}.
+Several methodological approaches have been developed for this purpose, including hierarchical linear, spatial econometric, and structural decomposition models~\cite{anselin1988spatial,elhorst2017spatial}.
+These methods typically sum growth contributions across sectors or spatial units while accounting for spatial and temporal correlations~\cite{rey2021pysal}.
+Although influential in research and policy, such methods rely on restrictive assumptions such as linearity, separability, or phenomenological fits that limit interpretability~\cite{manski1993identification,helbing2015societal}.
+
+Resolving heterogeneous dynamics across scales is not a challenge unique to social studies. 
+Statistical methods for ecosystems and economic supply networks often aim to describe multiscalar dynamics of interaction~\cite{chave2013problem} and shock propagation~\cite{carvalho2014micro}.
+The Price equation~\cite{price1972fisher} offers an exact decomposition separating endogenous growth effects from population sorting, or selection.
+It is also recursive, making it well suited for measuring variations in subpopulations at successively lower levels. This hierarchical structure \cite{bettencourt2021introduction} captures selection processes operating independently across multiple scales, enabling the analysis of heterogeneous growth patterns in complex societies such as cities.
+
+\begin{figure*}
+ \centering
+ \includegraphics[width=\linewidth]{figures/chicagomaprelative.pdf}
+ \caption{{\bf Local income and population growth rates are very  heterogeneous and spatially correlated.} In Chicago, A) relative income growth (left) and population growth (right) in neighborhoods (census tracts) vary strongly, on the order of $ \gamma_{p_\textrm{tr}}= \pm 5\%$/year and $\Delta\gamma_{p_\textrm{tr}}\pm 8\%$/year respectively. The insets show how the local heterogeneity and correlations in growth rates at the tract level wash out under averaging ($\textrm{E}_\textrm{cm}[\cdot]$) into community areas. B) Heterogeneity, measured by the standard deviation at each organizational level across the MSA, decreases under aggregation. Shifts in the mean value encode selection effects to be explored in this paper. C) Differences between income growth aggregation methods, defined in Eqs. \ref{eq:priceaggregation} and \ref{eq:oleypakesaggregation}, and a standard measure of aggregate income growth via Eq. \ref{eq:empiricalgrowth} encode information about growth dynamics.}\label{fig:Fig1}
+ %\label{fig:enter-label}
+\end{figure*}
+
+In this paper, we develop a simple and exact method to disaggregate income growth in terms of local demographic effects using the Price equation of population selection. 
+As an illustration, we explore the rich spatial heterogeneity of urban population and income growth in the city of Chicago, which we show is averaged away in standard aggregate metrics. We show how the Price equation decomposes aggregate income growth into selection and endogenous effects at each organizational scale. 
+This enables comparative analysis of growth trends across local and citywide scales, for instance in response to policy choices. We demonstrate its utility by identifying local population change effects such as gentrification and income concentration. Lastly, we use the Price equation to aggregate these effects and produce exact summary statistics attributing the macroscopic growth effects to variations at each level.
+
+\section*{Results} 
+To illustrate the problem, we use data from the city of Chicago.
+Chicago's has a highly dynamic demographic and economic history. 
+Between the 1850s and 1950s, the city's population, $p$, expanded rapidly, with growth largely concentrated in the urban core. More recently, 
+%Subsequent de-industrialization and mass suburbanization significantly shifted population growth from the city and inner neighborhoods to the suburban periphery. With these shifts, overall population and economic growth declined considerably. Chicago ceased to be the US's "second-city" around 1969 as Los Angeles grew faster, and is expected to become fourth (behind Houston) within the current decade. As we write, urban stagnation persists despite doubling Metropolitan Area (MSA) population since the 1950 census to around 10 million people. 
+between the 1990 and 2020 censuses, the city’s population, experienced bursts of local growth and contraction, resulting in a net loss of approximately 40k residents. We report these dynamics for Chicago's urban core (Cook county) between $t=2014$ and $t^\prime=2019$ through the annualized population growth rate measured across census tracts \textrm{tr}, $\gamma_{p_{\textrm{bg}}}=\ln(p_{\textrm{tr},t^\prime}/p_{\textrm{tr},t})/\Delta t$ (see Appendix A for details). In Fig. \ref{fig:Fig1}A, we observe strong population growth in the east, along the lake shore, that is balanced by inland decline, mostly in the southern and western regions of the city. By contrast, we observe almost stagnant population growth at the MSA level at $.025\%$,  visualized in Fig \ref{fig:Fig1}B. As demographic growth slows down across the world, this situation is becoming common of many other cities and regions.
+
+Income growth has a somewhat different character. MSA-wide nominal income growth rate is measured at $\gamma_{\textrm{m}}=3.42\%$/year. The empirical growth rate is defined 
+\begin{equation}\label{eq:empiricalgrowth}
+    \gamma_{j}=\Delta\ln\textrm{E}_j[y_k]=\frac{\ln y_{jt^\prime}-\ln y_{jt}}{\Delta t},
+\end{equation}
+with comparable amounts of spatial and distributional heterogeneity reported in Fig. \ref{fig:Fig1}A and B. We report relative growth in sub-figure A, where $\Delta\gamma_\textrm{tr}=\gamma_{\textrm{ct}}-\gamma_\textrm{tr}$ to identify where income disparities are growing. We observe stronger growth inland, on the northwest regions of the city, slower to stagnant growth in the east along the lake, and lagging growth in the southern regions of the city.
+This mismatch between aggregate economic and demographic growth motivates examining more granular, neighborhood level data, which more directly reflects individual experiences and residential decisions.
+
+The crucial issue is whether the interplay between endogenous growth, where people's real incomes increase, versus sorting, where people with different incomes are attracted or repelled differentially by location. As we will show, sorting (or spatial selection) affects aggregate growth whenever richer and poorer populations replace one another, even in the absence of endogenous income growth. Evidence of racial and economic displacement~\cite{betancur2002politics,hwang2014divergent} suggests that it may contribute significantly to aggregate economic growth rates in cities.  
+
+To measure these factors, we now analyze the statistics of population and income distribution across scales in Chicago. We start with the smallest possible units (block groups with populations $\sim 1,000$) and characterize each unit's exact contribution to aggregate rates of change at larger scales. This will allow us to systematically identify a typology of growth patterns in different locations.
+In principle, successive scales of aggregation can be identified flexibly to reflect the local character of the city. For our analysis here, we will use a standard hierarchy of nested scales defined by the US Census, which starts with block groups (bg) at the smallest scales, aggregated into census tracts (tr), communities (cm for Chicago communities and census places), and counties (ct) at the largest scales. The Price equation then provides a method for tabulating these selection effects at each scale, and aggregating them relative to the overall income growth. 
+
+The Price equation describes the temporal change in an average trait $z_j$, aggregated in terms of subgroup trait $z_k$.  As we show in Appendix B1, the most straightforward trait assignment for our purposes is in terms of logarithmic income, $z=\ln y$. Then, income growth rates, $\gamma = \frac{d \ln y}{dt}$, are averages (aggregations) of variations of logarithmic income at lower levels. Making these scales explicit,  the growth rate is defined as (Appendix A4)
+ \begin{equation}\label{eq:priceaggregation}
+ \gamma_j^p\equiv  \Delta \textrm E_j[\ln y_k]=\sum_{k\in j}(f_{kt^\prime} z_{kt^\prime}-f_{kt}z_{kt}),
+\end{equation} 
+where $f_{kt}=p_{kt}/\sum_kp_{kt}$ is the fraction of the population in unit $k$ at time $t$. Another trait choice could be $z=y$, where growth rates are aggregated from incomes \cite{olley1992dynamics}.
+ \begin{equation}\label{eq:oleypakesaggregation}
+ \gamma_j^y\equiv \textrm E_j[ y_k\Delta\ln y_k]/\textrm E_j[y_k]
+\end{equation} 
+The former decomposes growth in terms of \textit{population selection} effects (hence the superscript) in an analysis consistent with the original formulation of the Price equation \cite{price1972fisher,frank2012natural} and will be discussed next. The latter decomposes \textit{income sorting} effects its relationships to Eq. \ref{eq:priceaggregation} is discussed in the supplement.
+Fig \ref{fig:Fig1}C demonstrates that while these quantities generally predict the empirical growth rate well, there are some noticeably strong outliers, suggesting different observable selection effects between aggregation methods.
+
+\begin{figure*}
+ \centering
+ \includegraphics[width=\linewidth]{figures/selectiondiagram.pdf}
+ \caption{{\bf  Schematic of 3-level decomposition in a typical community area with no population growth but positive income growth.}  
+ Between tracts (mid-level) the population rebalances from the low-income A to the high-income tract B. Between block groups (lowest level),  populations and incomes are growing in tract B's lower income areas, and populations are declining in tract A's low income areas. These changes are recorded as selection effects and transmitted via averaging to the community level.}\label{fig:fig2}
+ %\label{fig:enter-label}
+\end{figure*}
+
+\subsubsection*{Multiscale Growth Decomposition}
+
+So far, we have discussed why attention to evidence on disaggregated growth rates is necessary for developing coherent narratives of change concerning people in organizational hierarchies, such as cities. 
+We have also introduced two methods of computing growth rate data, and have shown that  standard aggregation methods erase much statistical and spatial variation in the data.  We will now introduce the Price equation, the standard accounting device of evolutionary dynamics. The Price equation measures how a population-averaged trait $z$ changes over time as the result of contributions from changes across groupings of the population. 
+Crucially, it separates effects of population sorting, referred to as $selection$, from all other effects that result in endogenous trait growth. 
+This enables an exact hierarchical decomposition of change in terms of contributions from nesting subgroups.
+In the following, we apply this Price decomposition to log incomes, revealing the magnitude of neighborhood selection  and the effects of these compositional changes on growth.
+
+The aggregation in Eq. \ref{eq:priceaggregation} measures the population reweighting over time between subunits as a result of changes in local population. 
+In the Price equation, this is measured by $w_k\equiv \ \exp[\gamma_{p_k}]=p_{k,t^\prime}/p_{k,t}$.
+To ecologists, this represents a way to measure the fitness of a subgroup (here a neighborhood). 
+This is a relative measure, which is commonly defined versus the average across all subgroups, $w_j$, as $\bar w_k=w_k/w_j$.
+When $\bar w_k>0$, subgroup $k$ is more attractive in that it has a more positive growth rate than the average, regardless of whether nominal growth is positive.
+In this case, prevailing dynamics \textit{select for} that trait, and the value of that trait becomes increasingly more represented in the population. 
+
+Here, we identify groups by spatial units such as census tracts, whereas the trait is log income, $z_j=\textrm E_j[\ln y_k]$, averaged over lower units $k$. 
+In these terms, the Price equation restates Eq.  \ref{eq:priceaggregation} as
+ \begin{equation}\label{pricemaintext}
+ \gamma_j^p=\textrm E_j
+ \big[ \bar w_k\gamma_k^p
+ \big]+\textrm{cov}_j\big[\bar w_k,z_k\big].
+\end{equation} 
+This says that the average growth rate of the higher level unit is equal to the expectation over the reweighted growth rates, plus the covariance between fitness and log incomes across all lower level units.  The $transmission$, given by the first term $T_{k\rightarrow j}^p\equiv E_j[\bar w_k\gamma_k^p]$, measures the endogenous contribution of each subunit to the average growth of the larger unit, whereas $selection$, given by the second term $S_{k\rightarrow j}^p\equiv\textrm{cov}_j\big[\bar w_k,z_k\big]$, measures the statistical effects of population sorting along log incomes between spatial units.  When selection is positive (negative), populations concentrate in relatively higher (lower) income units, either through population loss (gain) in lower income areas or population gain (loss) in higher income areas. As a result, sorting across spatial units may increase the observed aggregate growth if the rebalancing concentrates population in higher-income areas. 
+
+The Price equation can be defined recursively, so that the growth rate of unit $j$ is described in terms of statistical effects among lower units $k$ and their subunits $l$.  
+The Price equation for the growth rate of any subunit
+is $\gamma_{k}^p=T_{l\rightarrow k}^p+S_{l\rightarrow k}^p$.
+We substitute this into the transmission term of Eq. \ref{pricemaintext} to retrieve the two-level Price decomposition as $\gamma_{j}^p=S_{k\rightarrow j}^p+S_{l\rightarrow j}^p+\textrm T_{l\rightarrow j}^p$, where an index spanning more than one level implies averaging $X_{l\rightarrow j}=\textrm E_j[X_{l\rightarrow k}]$. 
+This redefines a previously  endogenous transmission term $T_{k\rightarrow j}^p$ in Eq. \ref{pricemaintext} in terms of selection driven by internal sorting, $S_{l\rightarrow j}^p$, and transmission $T_{l\rightarrow j}^p$.
+Thus, a multi-level Price decomposition is the weighted sum over the selection effects at each level, transmitted to the level of the parent through population-weighted averaging.
+Comparing population selection effects across scales then becomes a scalar difference between selection terms. 
+\begin{figure*}\label{fig:fig3}
+ \centering
+ \includegraphics[width=.63\linewidth,angle=270]{figures/chicagoselection.pdf}
+ \caption{{ \bf Population selection on income varies widely across neighborhoods and scales.} A. The raw income and population growth data are divided into three regions (contour lines). B. Local income selection effects transmitted to the community area level, mapped for the city of Chicago by region are computed from block group-level effects (left) and tract-level effects (right). The aggregate selection effect for each unit is amplified or hidden, depending on whether the selection is complementary (same-sign) or competing (opposite-sign). }
+ \label{fig:fig3}
+\end{figure*}
+Applying this to urban income data, the average growth rate of the MSA can then be disaggregated in terms of the terminal child, $ \textrm{bg}$, and the three intermediate levels, tr, cm, and ct as
+ \begin{equation}
+\begin{split}\label{priceequationmultilevelmaintext}
+ \gamma_{\textrm{m}}^p=&S_{\textrm{ct}\rightarrow \textrm{m}}^p+S_{\textrm{cm}\rightarrow \textrm{m}}^p
+ +
+ S_{\textrm{tr}\rightarrow \textrm{m}}^p +S_{\textrm{bg}\rightarrow \textrm{m}}^p
+ +T_{\textrm{bg}\rightarrow \textrm{m}}^p
+ .
+\end{split}
+\end{equation} 
+Here, local fitness are defined relative to the MSA, $\bar w_{k}= w_{k}/w_{m}$, rather than the tract. 
+This expression measures the cumulative selection, measured between units at each level of organization, aggregated to the level of the MSA. 
+
+By construction, selection between levels is statistically independent, permitting a level-by-level analysis of selection statistics.
+Fig. \ref{fig:fig2} visualizes a schematic community with positive income growth and a stagnating (aggregate) population.
+The community is composed of tracts A and B of roughly equal population and income, both demonstrating income growth. In tract A, individuals sort into high-income block groups (while leaving low-income block groups), producing a positive covariance for tract A.
+Meanwhile, other individuals sort themselves into low-income block groups in B, producing negative covariance for tract B. Assuming selection in A is stronger than B, positive selection is transmitted from block groups.
+Imagine, however, the population of tract A shrinks as B grows. Because there are negligible income differences between A and B, this migration cannot be attributed to tract-level income sorting, producing negligibly small selection between tracts.
+Aggregating local selection reveals considerable effects of population sorting on income growth, despite negligible aggregate population change.
+
+This example illustrates how the Price equation reveals dynamical effects that standard aggregation measures overlook. Its recursive structure preserves multilevel spatial stratification, addressing a longstanding challenge in urban sociology of linking micro-ecological processes to macro-structural outcomes~\cite{mckenzie_ecological_1925,bettencourt2021introduction}.
+Figure~\ref{fig:fig3} presents the Price equation defined for each community using real income and population growth data from Chicago’s urban core. 
+For interpretability, we express selection as a percentage relative to the county-wide growth rate, $\omega_x^p=S_{ x}^p/\gamma_{\textrm{ct}}^p*100$. 
+Figure~\ref{fig:fig3}A highlights three spatial regions with consistent selection effects, while Fig.~\ref{fig:fig3}B shows their internal selection at the tract level (left), and within tracts across block groups (right).
+Purple represents negative selection and orange positive.
+In Region 1 (near north/northwest), selection is negative at the block-group level but positive across tracts, indicating residential sorting toward high-income tracts but low-income blocks—competing selection pressures across scales.
+In Region 2, encompassing much of the near-west communities, selection is aligned across scales: individuals consistently sorted into high-income tracts and block groups inland, whereas in the downtown and near-south, sorting favored lower-income units.
+Elsewhere, including most of Region 3, cross-scale selection is inconsistent, reflecting more complex sorting patterns.
+
+\begin{figure*}
+ \centering
+ \includegraphics[width=\linewidth]{figures/populationselectiontotal.pdf}
+ \caption{{\bf Analyses of local selection enables a more  systematic understanding of urban dynamics}. A. Aggregate income and population growth data are complemented by selection, suggesting potential hypotheses of local change. B. Selection effects are spatially concentrated, with 20\% of tracts (communities) accounting for 59\% (64\%) of overall selection. C. The average selection magnitude is larger in more populated counties. D. Selection magnitudes, $\rho_j^p$, are the highest within tracts, however selection effects transmitted via the Price equation, $\omega_j^p$, are the most consistent across communities in a county. Low transmitted selection effects indicate they largely counterbalance in the Chicago MSA.}
+ \label{fig:fig4}
+\end{figure*}
+
+
+\subsubsection*{Data-driven Hypotheses of Urban Change}
+
+
+Urban sociology has long emphasized that powerful groups promote physical separation from those they deem undesirable \cite{charles2003dynamics, massey1990american}, while spatial assimilation theory posits that individuals use socioeconomic resources to access better neighborhoods \cite{massey1994migration}.
+Both processes reflect nonrandom population sorting, which can masquerade as causal neighborhood effects on various outcomes, from crime to child health \cite{sampson2008moving,sampson2002assessing}.
+Our analysis separates these selection effects from noise, providing insight into the dynamics of inequality in neighborhood attainment.
+
+Fig. \ref{fig:fig3}A  combines local multilevel population selection, $\omega_\textrm{cm}^p=(S_{\textrm{bg}\rightarrow \textrm{cm}}^p+S_{\textrm{tr}\rightarrow \textrm{cm}}^p)/\gamma_\textrm{ct}^p$, with income and population growth data, to  identify where residential decisions tangibly alter the landscape of incomes and inequality, revealing when segregation, gentrification, or suburbanization reinforce or offset one another. We observe a rich typology of situations. For example,
+in case $i.$ (more affluent lakefront communities) population growth was high but with mixed effects on relative income.
+ The mixed-to-negative income selection indicates that much of this migration is into low-income subareas, suggesting potential revitalization. Case $ii$. shows low population gains with relatively high income growth, coupled with strongly positive selection. This reflects higher income populations' preference for higher-income areas, an instance of income concentration.
+These dynamics contrast with $iii.$ and $iv.$ where populations are stagnating or declining. 
+In $iii.$ (lower income southern communities), we observe relative income loss coupled with negative selection, signaling out-migration of relatively higher income residents. This is a pattern commonly discussed with the creation of concentrated poverty~\cite{sampson2012great,bettencourt2021introduction}. Lastly, we observe income gains in some southwest neighborhoods in $iv$, along with competing selection but population stagnation. This suggests a more spatially complex, scale-dependent displacement of incumbent residents. Here, we observe micro-segregation inside affluent tracts: households move into high-income tracts (positive between-tract selection) but concentrate in their lower-income block groups (negative within-tract selection). 
+This pattern enables access to tract-level opportunities while reproducing fine-grained income segregation locally. 
+
+To measure the amount of overall selection variation in the data, we report the single-level selection magnitude $\rho_{\textrm{tr}}^p=|S_{\textrm{bg}\rightarrow\textrm{tr}}^p|/\gamma_\textrm{Chi}^p$. We find that selection is highly spatially clustered, as only 20\% of tracts (communities, $\rho_\textrm{cm}^p$) account for 59\% (64\%) of all selection (Figure 4B). 
+While tract and community-level selection are concentrated similarly, Figure S2A shows that tract-level selection has wider variation and skew than community-level selection, indicating stronger local heterogeneity.
+Accordingly, any model of residential selection must increase in complexity with finer spatial resolution, consistent with recent findings on neighborhood selection using information as a metric~\cite{bettencourt2025decoding}.  
+In Fig. \ref{fig:fig4}C, we show that these selection magnitudes exhibit a superlinear scaling behavior when aggregated to the county level. 
+However,  Appendix \ref{scaling} shows that these effects vanish in the data when accounting for relative tract and county population.
+Fig. \ref{fig:fig4}D reports both the population-weighted average, $\langle\rho_j^p\rangle$ and its standard deviation, $\sigma(\rho_j^p)$ across spatial units, revealing the largest heterogeneity at the tract level at $13.6\%$, with standard deviation of $15.9\%$.
+
+Despite this local richness, most variation vanishes when aggregated to the MSA level via the Price equation, yielding low cumulative selection.
+The lower panel of Fig. \ref{fig:fig4}D reports the empirical selection effects, $\omega_j^p$, where opposing signs among sibling units offset. 
+Selection effects within tracts reduces aggregate growth by only $1.4\%$ while selection across communities contributes $3.3\%$.  Overall, selection effects within communities and across the MSA nearly balance, contributing an additional 2.1\% increase to aggregate MSA income growth.
+
+By treating spatial units as evolving subpopulations under selection, we measure both how prevailing incomes shape residential choices and how these choices, in turn, influence aggregate income growth. 
+Selection effects grow more heterogeneous and pronounced at finer spatial scales in our study but exhibit the greatest spatial coherence at the county level.
+Put differently, residents most consistently prefer high-income community areas, while favoring generally lower-income block groups.
+
+These results demonstrate that residential choices can be rigorously quantified by income, along with their aggregate effects on metropolitan growth dynamics.
+Consistent with scale-sensitive segregation theory \cite{reardon2008geographic}, we find large $\langle\rho_j^p\rangle$ at the tract level, persistent $\omega_j^p$ within counties, and negligible $\omega$ at the MSA scale—identifying the level at which population sorting by income most strongly operates.
+The findings underscore the complexity that models of residential selection must capture to reproduce observed dynamics.
+They also provide an exact quantitative framework for disentangling contextual effects from compositional sorting for any trait, not just income, thereby advancing explanatory models of urban change. Our approach pinpoints where sorting accumulates or cancels and identifies which sorting mechanisms are at play to explain observed changes in spatial inequality.
+An analogous decomposition applies to Eq. \ref{eq:oleypakesaggregation}, which measures income concentration more directly \cite{olley1992dynamics} and will be explored in future work.
+
+% Prior work suggests income selection effects are a predictor of spatial inequality on annual timescales. 
+% In Fig. \ref{fig:fig3}B, we plot scatter cumulative selection effects (\textbf{mislabeled} versus the difference in growth rates and the distributional average across the MSA $\Delta\bar\gamma_{\textrm{cm}}^y=\bar\gamma_{\textrm{cm}}^y-\langle\bar\gamma_{\textrm{cm}}^y\rangle_{\textrm{m}}$, where $\langle\bar\gamma_{\textrm{cm}}^y\rangle_{\textrm{m}}=\frac{1}{N_{\textrm{m}}}\sum\bar\gamma_{\textrm{cm}}^y$.
+% We visualize, in terms of quadrants, how selection effects are contributing to the emergence of spatial inequality. 
+% We find that a income selection effects are expected to reduce inequality in a majority of Chicago area communities. 
+% We find a strong relationship between tract-level selection effects and the emergence of inequality across tracts, as measured by the change gini coefficient between the initial and finial year of the dataset.
+% Fig. \ref{fig:fig3}C, scatters these quantities for the full data, and bifurcated by the lagging and leading, by income growth, communities. 
+% We find that across all three data splits, selection effects are strong indicators of the development of inequality
+
+\section*{Discussion}
+
+In this paper, we demonstrated a novel application of the Price equation to disaggregate urban income growth in terms of residential selection effects across a spatial hierarchy connecting very small local communities (neighborhoods) to counties and their metropolitan area. We showed that the heterogeneity of income and population growth data is largely lost under aggregation, limiting quantitative analyses of local urban dynamics. 
+We then used the Price equation to derive a multi-level decomposition of income growth in terms of scale-dependent selection effects.
+We showed that selection effects are spatially concentrated, fat-tailed, and exhibit basic scaling relationships.
+We then demonstrated the use of this systematic in producing hypotheses for local socio-urban change when paired with income and population growth data.
+We concluded by showing that despite this variation, selection effects largely cancel out on larger scales in Chicago, resulting in a small statistical effect on aggregate growth. 
+
+Stratified urban data analyses make explicit the coupling between local structural forces and the compositional evolution of metropolitan areas.
+Future research could extend this framework by modeling how local institutional structures such as zoning, school district boundaries, and neighborhood-level political organization influence selection across space and scale \cite{crowder2012neighborhood}. 
+These structures interact with other demographic characteristics such as  race and class to shape residential mobility and, often, to reproduce segregation and concentrated poverty. 
+Evidence shows that, even at similar incomes, Black households face higher risks of downward neighborhood moves, with gentrification and displacement amplifying churn among lower-income renters \cite{crowder2005race, south1997migration, quillian1999migration, desmond2016evicted, massey1994migration}. 
+Comparative analyses across metropolitan areas, before and after the pandemic, with varying degrees of fragmentation and segregation, would further clarify how these structural conditions affect the balance between spatial assimilation and place stratification. 
+
+Future research could also explore how local place identities, perceived neighborhood boundaries, and mental maps shape the spatial scale at which residential turnover occurs (e.g., boroughs in NYC, community areas in Chicago, micro-neighborhoods in LA). Prior work \cite{logan1983residents,
+krysan2007perceiving} suggests that symbolic and cognitive boundaries, e.g., racial blindspots \cite{krysan_racial_2009}, may interact with formal governance structures to reinforce barriers to upward mobility and neighborhood attainment.  This analysis could be extended to examine the bidirectional influence of residential choice and capital allocation through the dynamics of point of interest (POI) dependency networks \cite{yabe2025behaviour}, particularly as climate disasters influence dramatic population churn that persists post-recovery \cite{park2024post}.
+Ultimately, such work would inform policy at scales relevant to people and households to reduce inequities in neighborhood access and ensure that the benefits of (urban) growth are more equitably distributed.
+
+Lastly, trait-based, multilevel decompositions can summarize emerging disaggregate trends in hierarchical economic datasets such as production \cite{bacilieri2023firm}, occupation networks \cite{del2021occupational}, and infrastructure \cite{sutradhar2024depopulation}.
+Revealing scale-dependent churn from shocks such as future pandemics, climate events, or the emergence of artificial intelligence will inform benchmarks for future disequilibrium economic \cite{wiese2024forecasting} and infrastructure \cite{sutradhar2024depopulation} models, improving our ability to predict out-of-sample structural responses in multi-scale economic systems.
+
+\section*{Achknowledgements}
+We thank Andrew Stier, and François Lafond for their discussions and comments on the manuscript.
+This work is supported by the Department of Ecology and Evolution at the University of Chicago, and the Institute for New Economic Thinking at the University of Oxford.
+\subsection*{Author contribution}
+JTK and LMAB conceived the research. JTK designed the experiments, produced the figures, and developed the draft. JTK and LF produced the maps. All authors edited the manuscript. 
+
+
+
+\bibliography{derivation}
+
+\appendix
+\section*{Supplementary Material}
+
+Annual population and income distribution estimates at the census block group ($\textrm{bg}$) level are retrieved from the American Community Survey (ACS). 
+We compute changes in population and income as annualized growth rates to build spatial distributions of net migration and income growth. 
+We compute population growth rate $\gamma_{p_{\textrm{bg}}}$ for block group $\textrm{bg}$ with population $p_{\textrm{bg}}$, as the log ratio in population between the final and initial year, as $\gamma_{p_{\textrm{bg}}}=(1/\Delta t)\ln(p_{\textrm{bg},t^\prime}/p_{\textrm{bg},t})$, where $t^\prime=2019,t=2014,$ and $\Delta t=t^\prime-t=5$ years. 
+We compute these growth rates similarly for larger spatial scales, such as tract (tr), communities (cm, encompassing City of Chicago community areas and Illinois census designated places), county (ct), and MSA ($\textrm{m}$), by first summing populations among sibling units in a parent unit (Appendix A2). 
+We find that the distribution of population growth rates for all block groups in the MSA is fat-tailed, fitted with a Student-t distribution with mean of $-0.2\%$ (Fig \ref{fig:App1}).
+We map the population growth rates at the tract level for a most of Cook County in Fig. \ref{fig:Fig1}A.
+ 
+The definition for the approximate average income of a block group, $ y_{\textrm{bg}}$, is estimated from the midpoint expectation value of ACS income histogram data, where the top income bin is set to $\$400$k (Appendix A).
+The annualized growth rate in incomes for a block group is computed similarly as before, $\gamma_{\textrm{bg}}=(1/\Delta t)\ln( y_{\textrm{bg},t^\prime}/ y_{\textrm{bg},t})$.
+Nominal income growth rates are also fat-tailed, in agreement with cross-sectional studies of income \cite{guvenen2021data}, and are described by a t distribution with mean $4.78\%$.
+For readability, we report growth rates relative to the county as $\Delta\gamma_{\textrm{tr}}=\gamma_{\textrm{tr}}-\gamma_{\textrm{ct}}$, where $\gamma_{\textrm{ct}}=\textrm E_{\textrm{ct}}[\gamma_{\textrm{tr}}]$. 
+
+We show in Fig. \ref{fig:Fig1}B that this rich heterogeneity is lost under aggregation, as the variation in population and growth shrinks as we examine the population statistics at larger levels of aggregation.
+We find that the distribution of population growth rates for all block groups in the MSA is fat-tailed, fitted with a Student-t distribution with mean of $-0.2\%$ (Fig \ref{fig:App1}).
+We find that the distribution of population growth rates for all block groups in the MSA is fat-tailed, fitted with a Student-t distribution with mean of $-0.2\%$ (Fig \ref{fig:App1}).
+
+\renewcommand{\arraystretch}{1.3}
+\begin{table}[h!]
+\centering
+% In revtex4-2, do NOT use tabularx or the width argument
+% Instead, use a regular tabular with a fixed-width paragraph column
+\begin{tabular}{l p{0.72\linewidth}}
+\hline
+\textbf{Variable} & \textbf{Name/Description} \\
+\hline
+$p_j$        & Population of spatial unit $j$. \\
+$y_{ix}$     & Income bin $i$ of unit $x$; when $i$ is excluded, this is the average income over unit $x$. \\
+$z_j$        & Log average income of unit $j$. \\
+$w_j$        & Absolute fitness of unit $j$. \\
+$\bar w_j$   & Relative fitness of unit $j$. \\
+$\gamma_j$   & Empirical growth rate of unit $j$. \\
+$\gamma_j^p$ & Population-weighted growth rate of unit $j$. \\
+$\gamma_j^y$ & Income-weighted growth rate of unit $j$. \\
+$S_{k\rightarrow j}^p$
+             & Selection along incomes aggregated from units $k$ to $j$.  
+               If the subscript spans more than one level, it is implied that  
+               $S_{l\rightarrow j}^p = \mathrm{E}_j\!\left[S_{l\rightarrow k}^p\right]$. \\
+$\omega_j^p$ & Selection within unit $j$ normalized by the terminal parent’s growth rate.  
+               In Fig.~3, the terminal parent is Cook County; in Fig.~4, it is the Chicago MSA. \\
+$\rho_j^p$   & Selection magnitude of unit $j$ normalized by terminal parent growth.  
+               In Fig.~4, the terminal parent is the Chicago MSA. \\
+\hline
+\end{tabular}
+\caption{Model variables and their definitions.}
+\label{tab:variables}
+\end{table}
+\renewcommand{\arraystretch}{1.0}
+
+
+
+\section{Dataset Generation}
+
+
+To generate the dataset, we read in population and income distribution data from the ACS survey, which is available at the tract level starting in 2010, and available from the block group level between 2014-2023. 
+Following the 2020 census, the boundaries of some tracts and block groups were redrawn. 
+Tract and block group definitions are therefore not guaranteed to align between 2019 and 2020.
+This break conveniently aligns with major productivity and migration shifts during the COVID pandemic in 2020. 
+As such, the analysis in this paper is conducted primarily using data between 2014 and 2019. 
+
+\begin{figure*}
+ \centering
+ \includegraphics[width=\linewidth]{figures/Appendix1.pdf}
+ \caption{Income and population growth rate data reported between the 2014-2019 period. A) Population and income growth rates are symmetric and fat-tailed, while log incomes are fit with a Gaussian distribution. B) Community-level maps demonstrate that populations were concentrated on the north side and far-west side, however most population growth was measured along the eastern lakefron. Incomes were concentrated along the lakefront in 2014, however most income growth was observed inland in the northwest side neighborhoods, and southwest side communities.  }\label{fig:App1}
+
+\end{figure*}
+
+\subsection{Data retrieval}
+
+The data provided by the ACS are assigned, at its most granular level, to spatial units called census block groups. Block groups (B), with subscript $\textrm{bg}$ are defined by a FIPS serial code, and its geographic boundaries are by the spatial coordinates of the indices of its shapefile polygons.
+We retrieve the population of a block groups using the API code $B01003\_001E$, the number of households with code $B11001\_001E$, and the persons per household as $B25010\_001E$.
+The income bin counts in the ACS data are computed by household, so we estimate population using unit-wide household estimates, denoted $h_\textrm{bg}$, weighed by the number of people per household, $\rho_{\textrm{bg}}$
+The population is computed as the product of these quantities, $p_{\textrm{bg}}=h_{\textrm{bg}}*\rho_{\textrm{bg}}$.
+For block groups with zero population, which could be the case for industrial corridors, bodies of water, or airports, we manually assert $p_{\textrm{bg}}=0$ (in these cases, the persons per household data is set by the Census Bureau to a sentinel value of -666\ldots) .
+In aggregate we find generally negligible qualitative differences between the distribution of raw population counts, and population counts computed from density adjusted household counts.
+
+We could similarly read in such values at the tract level, denoted in this text as $\textrm{tr}$ (T), the county level, $\textrm{ct}$ (C), or the state level, $\textrm{st}$ (S). 
+However, to ensure that population and income counts are consistent across scales, we aggregate such values directly from the block group level in a process described in the following section.
+We introduce an intermediate level of aggregation, the community, denoted $\textrm{cm}$, a unit of aggregation reported as community areas for the City of Chicago, and as census designated places in non-Chicago municipalities throughout the state.
+The spatial boundaries at this level of aggregation are not standardized in ACS data such that tracts may span more than one community area, and census places span more than one county. 
+We match tracts to the community in which lies the centroid of the tract.
+Communities that span more than one county at partitioned along the counties' boundaries, so as to partition the population dynamics generally between counties. 
+For example, Naperville, IL, which spans DuPage and Will County, is partitioned into "NAPERVILLE (DUPAGE)" and "NAPERVILLE (WILL)" in the data. 
+Here, we study data from the Illinois-side of the Chicago MSA, which includes Chicago's 77 community areas, as well municipalities throughout Cook, DuPage, Kane, McHenry, Will, DeKalb, and Kendall counties. 
+
+We read in the income bin data at the block-group level, from ACS codes $B19001\_0XXE$, where $XX$ runs from 02 to 17. 
+We assign the income value of the bin to the midpoint of the range the bin spans.
+We set the midpoint of the highest income bin, $>\$250K$, to be $\$400K$.
+Generally, this value is arbitrary, but is selected to balance between a good fit of income distribution data under a $\$300K$ midpoint, and empirically fat tail of incomes given by $\$500K$.
+The effects studied in this paper are determined mostly by the rank-order of incomes, rather than the length of the tail.
+Therefore, estimating a precise tail isn't critical to the results, so a precise estimate is beyond the scope of this work. 
+For every block group, denoted $\textrm{bg}$, we compute the average income for every spatial unit. 
+Consider incomes $y_i $ in bins of population $p_i$ reported in number of people for spatial unit $k$. 
 \begin{equation}
-    \textrm E[\bar\gamma_k]=\textrm E[\Delta\ln\bar y_k]=\frac{\sum_kp_k\bar \gamma_k}{\sum_kp_k}
+ y_{\textrm{bg}}=\sum_i\frac{p_{\textrm{bg},i}y_{\textrm{bg},i}}{\sum_jp_{\textrm{bg},j}},
+\end{equation}
+where the sum is taken over income bins indexed by $i$. 
+
+\subsection{Aggregation}
+
+For all block groups bg in tract tr, which are matched using the components of the full 11-digit serial code FIPS code (organized by SSCCCTTTTTB), the population is aggregated $\textrm{br}\rightarrow \textrm{tr}$ as
+\begin{equation}
+ p_{\textrm{tr}}=\sum_{\textrm{bg}\in \textrm{tr}}p_{\textrm{bg}}, 
+\end{equation}
+where belongingness is determined by common FIPS S,C, and T digits among block groups. 
+This aggregation is similarly defined from tracts to communities, $\textrm{tr}\rightarrow\textrm{cm}$, communities to counties as $\textrm{cm}\rightarrow \textrm{ct}$, and from counties to states $\textrm{ct}\rightarrow\textrm{st}$.
+Note that community areas are not defined in the FIPS code, and must be identified through the aforementioned geographic matching, both from tracts to community areas, and community areas to counties.
+In general, a metropolitan statistical area (MSA) can span more than one state, $\textrm{st}\rightarrow \textrm{m}$.
+However, for both simplicity and because the Chicago MSA, the predominant focus of this paper, lies mostly in Illinois, we only aggregate counties within Illinois.
+
+
+
+
+We further define two methods of aggregating incomes, by which we average among children within a spatial unit, and then introduce three methods for aggregating growth rates.
+For quantity $x$, we compute the expectation value as the population-weighted average across spatial units within a parent unit of aggregation as $E_j[x_k]=\sum_{k\in j}(p_{k}/p_j)x_k$. 
+
+Here, we study the statistics of both incomes and log incomes. 
+We compute the income of a parent unit from its children in two ways. 
+First, to aggregate the income in the most standard way, here considered the empirical income, we take the expectation value of incomes across its children (equivalent the expectation value of the sum over child bins). 
+This is defined as 
+\begin{equation}\label{aggincome}
+ y_j\equiv\textrm E_j[y_k]=\sum_{k\in j}\frac{p_{k}}{p_j} y_k.
+\end{equation}
+We also aggregate the log income as
+\begin{equation}\label{logincome}
+ z_j=\textrm E_j[\ln y_{k}]=\sum_{k\in j}\frac{p_k}{p_j}\ln y_k
+\end{equation}
+This definition differs from the log of Eq. \ref{aggincome}, up to Jensen's inequality, and is not a standard method for aggregating incomes or growth rates. 
+However, we show that this aggregation encodes informative population dynamical data, measured through changes in population.
+
+\subsection{Population growth statistics}
+We measure the change in population of a block group between two years $t<t^\prime$ with the compound growth rate over the time period.
+From the number of households, the population growth rate is computed over the interval $\Delta t=t^\prime-t$ as 
+\begin{equation} \gamma_{p_{\textrm{bg}}}\equiv \frac{1}{\Delta t}\ln\frac{ p_{\textrm{bg},t^\prime}}{ p_{\textrm{bg},t}}=\frac{\ln p_{\textrm{bg},t^\prime}-\ln p_{\textrm{bg},t}}{\Delta t}=\frac{\Delta\ln p_{\textrm{bg}}}{\Delta t}.
+\end{equation}
+\noindent This provides an intuitive measure for population change across arbitrary timescales. 
+The \textit{empirical growth rate} is computed for higher levels of aggregation by first aggregating incomes, then computing growth rates. 
+The growth rates in incomes across Chicago city proper are visualized in \ref{fig:Fig1}A. 
+We find that, although the population growth rate across all of Cook County, converted from households, is around $-.025\%$, we see from the figure that the real changes are highly heterogeneous. 
+
+A less common, but useful quantity is the reproductive fitness of a spatial unit.
+The fitness measures the relative population between timesteps, and is simply the exponential of the growth rate. 
+It is a positive semi-definite quantity defined
+\begin{equation}
+ w_{\textrm{bg}}=\frac{p_{\textrm{bg},t^\prime}}{p_{\textrm{bg},t}}.
+\end{equation}
+We can compute the fitness across sibling spatial units by taking the ratio of its fitness to its $n$th parent.
+For example, we could compute the fitness of a block group relative to all other block groups in its county by computing
+\begin{equation}
+ \bar w_{\textrm{bg}}=\frac{w_{\textrm{bg}}}{w_{\textrm{ct}}}=\textrm{exp}[\gamma_{\textrm{bg}}-\gamma_{\textrm{tr}}]
 \end{equation}
 
-The second option is to compute the aggregate growth rate, averaged over the log average incomes.  
+There is notational ambiguity as to which value a blockgroup is normalized, so it will always be specified in text. 
+These two measures of population change will be used throughout the analysis. 
 
+\subsection{Growth statistics}
+
+So far, we have defined income and population aggregation methods, and some statistical measures of population dynamics. 
+In this section, we compute growth dynamics for incomes. 
+We compute the empirical growth rate for that spatial unit across time span $\Delta t=t^\prime-t$ as the difference in the logarithm of empirical incomes
+\begin{equation}\label{empiricalgrowthrate}
+ \gamma_j\equiv \Delta \ln \textrm E_j[y_k]=\frac{\ln y_{jt^\prime}-\ln y_{jt}}{\Delta t}
+\end{equation}
+Assume $\Delta t=1$ for brevity. In the analysis in the main text, $\Delta t=5yrs$ as the data is analyzed in the 2014-19 span, but can be in principle any value.
+
+To study growth in block groups where no aggregation has been performed, the empirical growth rate serves as the only growth quantity.
+However, for studying the growth statistics of larger spatial units such as tracts and beyond, we have several choices. 
+Consider the weights
+\begin{equation}\label{weightingschemes}
+  \phi_k=\frac{p_{k}y_{k}}{\sum_{k^\prime\in j}p_{k^\prime}y_{k^\prime}}; \hspace{.25cm} f_k=\frac{p_k}{\sum_{k^\prime\in j} p_{k^\prime}}.
+\end{equation}
+The first weight defines an expectation value weighed additionally by income, whereas the second weight defines a standard population-weighted average.
+
+Using these two weighting schemes, we now define the aggregation methods. The first option is to aggregate incomes according to Eq. \ref{aggincome}.
+Then, the growth rate is computed
+\begin{equation}\label{eg:oleypakessupp}
+ \gamma_j^y\equiv \textrm E_j[ y_k\Delta\ln y_k]/\textrm E_j[y_k]=\sum_{k\in j}\phi_k\gamma_{k}
+\end{equation} 
+This measure explicitly considers the context of growth by factoring in the nominal income value.
+This method is standard in the capital allocation literature \cite{olley1992dynamics}, and involves an expectation over the empirical growth rates, weighed by their income. 
+Note that we explicitly weigh by the initial population composition, consistent with a {Laspeyres} aggregation scheme, whereas a {Paasche} aggregation would instead weigh by the {final population composition} \cite{Balk2008}.
+The distinction is analogous to that between base-weighted and current-weighted index numbers in price and productivity measurement. Under the Laspeyres aggregation, aggregate growth reflects changes in incomes while holding the population structure fixed at its initial distribution, thereby isolating {within-unit} changes. In contrast, the Paasche formulation evaluates growth using the end-of-period composition, incorporating \textit{realized} reallocation or \textit{sorting} effects. It measures how shifts in population shares toward higher or lower income areas contribute to overall change.
+
+In this paper, we adopt the Laspeyres specification so that compositional effects arising from population reweighting can later be identified explicitly through a Price decomposition.
+Thus defines the second aggregation method.
+We to first aggregate log income according to Eq. \ref{logincome}, an approach not standard in the economics literature, then compute the growth as a difference using the standard weights
 \begin{equation}\label{meanloggrowth}
-    \bar\gamma_K=\Delta\textrm E\big[\ln \bar y_k\big]=\sum_{k}\Bigg[\frac{p_{kt^\prime}\ln y_{kt^\prime}}{\sum_kp_{kt^\prime}}-\frac{p_{kt}\ln y_{kt}}{\sum_kp_{kt}}\Bigg]
+ \gamma_j^p\textrm =\Delta \textrm E_j[\ln y_k]=\sum_{k}\big[f_{kt^\prime}z_{kt^\prime}
+-f_{kt}z_{kt}\big].
 \end{equation}
+Note that this explicitly re-weights the growth of each spatial unit by its population between time steps. As we will see later, this allows for an explicit retrieval of population sorting along incomes using the Price equation. 
 
-This is equivalent to taking the average of the difference in log resources, ie a mean log. The third option is to take the log mean, that is growth rate in income when averaged across the cumulative income bins.  
-
-
-
-Then the growth rate of the aggregate is simply
-
-\begin{equation}\label{logmeangrowth}
-    \bar\gamma_{\textrm E[y_k]}\equiv\Delta\ln\mathrm E[\bar y_k]=\ln\bar y_{Kt^\prime}-\ln \bar y_{Kt}
-\end{equation}
-
-There is also the income-weighted growth rate
-
-\begin{equation}
-    \textrm E[\bar\eta_k\bar y_{k0}]=\frac{\sum_{k}p_k\bar\gamma_k\bar y_k}{\sum_kp_k}
-\end{equation}
-The income-weighted growth rate can be computed from the income- weighted growth rate as 
-
-\begin{equation}
-   \bar\gamma_K^i=\frac{ \textrm E[\bar\eta_k\bar y_{k0}]}{\textrm E[\bar y_{k0}]}
-\end{equation}
-
-As we will show later, the denominator will be important for decompositions.
-\subsection{The Price Equation for Population Fitness}
-
-Consider a spatial unit $k$ with fitness $w_k=p_{kt^\prime}/p_{kt}$ fit. 
-The aggregate fitness of a the parent unit is computed as 
-
+These two calculations differ particularly by the order in which the logarithm and average are applied. 
+When growth rates are small, we can apply the first order approximation $y_k\Delta\ln y_k\approx \Delta y_k$.
+Applying this substitution this, we find that
 \begin{equation*}
-    w_K=\frac{p_{Kt^\prime}}{p_{Kt}}=\frac{\sum_kp_{it^\prime}}{\sum_k p_{ik}}
+ \gamma^y_k\approx\frac{\textrm E[\Delta y_k]}{\textrm E[y_k]}\approx \Delta\ln\textrm E[y_k],
 \end{equation*}
+This final expression states that the income-weighted aggregagte growth rate approximates to the first order \ref{empiricalgrowthrate}.
+This provides some theoretical justification for the close fit between empirical and income-weighted growth rates in Fig. \ref{fig:Fig1}C of the main text, and distinguishes the weighting schemes in Eq. \ref{weightingschemes} differ to higher order by Jensen's inequality.
 
-Relative fitness $\bar w_i=w_i/w_K=f_{it^\prime}/f_{it}$, where the populatiuon fraction is given by $f=p_i/\sum_jp_k$. 
+\begin{figure*}\label{fig:App2}
+ \centering
+ \includegraphics[width=\linewidth]{figures/App2.pdf}
+ \caption{Income and population growth data is highly correlated and heterogeneous A) Selection effects within community areas (purple) and tracts (orange) are fat tailed and skewed, suggesting spatial correlations or spillover effects between units. Local heterogeneity and correlations in ACS income and population growth data at the tract level is lost when aggregating to community areas. Fat tails (above) match a high degree of concentration in a subset of the population (below). B) Aggregating income and log income reveal distributions reveal differing growth statistics. C) Differences between aggregated growth statistics and standard, empirical measures of growth encode information about growth dynamics.}
 
-The price equation states that.
+\end{figure*}
 
-\begin{equation*}\label{populationprice}
-    \bar\gamma_K=\frac{1}{w_K}\textrm{cov}\big[w_k,\ln y_k\big]+\frac{1}{w_K}\textrm E
-    \big[w_k\bar\gamma_k
-    \big].
-\end{equation*}
+
+\section{Multiscale growth}
+
+In this appendix, we define the price equation in terms of the growth rate and fitness expressions derived in the previous sections. 
+
+\subsection{Price equation decomposition of log incomes}
+ 
+
+For an average trait  $z_j=\textrm E_ j[\ln y_k]$ , The price equation states that.
 
 \begin{equation}\label{populationprice}
-    \Delta\mathrm E[\ln \bar y_k]=\frac{1}{w_K}\textrm{cov}\big[w_k,\ln y_k\big]+\frac{1}{w_K}\textrm E
-    \big[w_k\Delta \ln\bar y_k
-    \big].
+ \mathrm \Delta \textrm E_j[\ln y_k]=\tfrac{1}{w_j}\textrm{cov}[ w_k,z_k]+\tfrac{1}{w_j}\textrm E
+ [w_kz_k
+ ].
 \end{equation}
 
-\noindent Here, we are treating log income as the trait, so that $\Delta y=\gamma$. 
-Practically, this means that implementing the Price equation requires the mean of log growth rates, or equation \ref{logmeangrowth}.
-This is counterintuitive, as incomes are the basic unit of analysis.
-We would therefore expect computing the growth of the mean, representing the change in the income distribution of a parent spatial unit aggregated over its children, might be the more intuitive for measuring phenomena across scale. However, plugging \ref{meanloggrowth} into \ref{populationprice} would result in numerical disagreement due to Jensen's inequality. 
-Therefore, the fundamental quantity of this calculation growth rate, aggregated across scales. As we will see later, this is not generally the case for analogous, Price-like decompositions. 
+\noindent If we assume $\Delta t=1$, it follows that $\Delta \langle\ln y\rangle_j=\gamma^p_j$. As explained in the main text, this expression decomposes the expectation value over growth rates (the average of log quantities) into compositional changes between units, the selection term, and endogenous shifts in that quantity in each unit (the transmission term. It is important to note that a log incone, $z_j$ is an average over log incomes, and explicitly not the log of an average over incomes. Most precisely, its written as
 
-Next, we define the Price equation between a spatial units, $K$, and its parent, $\kappa$.
-It is written similarly as 
+\begin{equation*}
+z_j=\sum_{l\in k}f_k\textrm E[\ln y_l]_k.
+\end{equation*}
+For the terminal child unit (in our case, the block group), $z_j=\ln y_j$
+Assuming $k$ is not the terminal child, we can define the Price equation for each growth term in the transmission term as
 
 \begin{equation}\label{populationpricelevel2}
-    \bar\gamma_\kappa=\frac{1}{w_\kappa}\textrm{cov}\big[w_K,\ln y_K\big]+\frac{1}{w_\kappa}\textrm E
-    \big[w_k\bar\gamma_k\big].
+ \gamma_k^p=\tfrac{1}{w_k}\textrm{cov}[w_l,z_l]+\tfrac{1}{w_\kappa}\textrm E
+ [w_l\gamma_l^p].
 \end{equation}
-
-Here, $\ln y_K$ is an average over log resources, 
-
-\begin{equation*}
-\ln y_K\equiv\overline{\ln y_K}=\frac{\sum_{ik}p_{ik}\ln y_{ik}}{\sum_{ik}p_{ik}}
-\end{equation*}
-
-Which as an average of logs, is  quite different from  $\ln \bar y_k$, computed directly from the income distribution as an log of an average.
-However, after this first level of aggregation, computing the log-income term follows \ref{incomeaggregation}
-
-\begin{equation}\label{priceequation2level}
-    \bar\gamma_\kappa=\frac{1}{w_\kappa}\textrm{cov}_\kappa\big[w_K,\ln y_K\big]+\frac{1}{w_\kappa}\textrm E_\kappa
-    \Big[\textrm{cov}\big[w_k,\ln y_k\big]+\textrm E_K
-    \big[w_k\bar\gamma_k
-    \big]\Big],
-\end{equation}
-
-\noindent where we have added subscripts for expectation values. 
-
-\subsection{Price equation for Income Dynamics}
-
-So far we have derived various income and growth rate quantities, and shown how they apply (and don't) to an application of the Price equation for studying US ACS income data. 
-This is helpful for studying patterns of spatial agglomeration in cities.
-We can disaggregate the strength of selection across spatial scales, probing which spatial levels account for the most or least variation in net migration, and its covariance with income growth rates.
-
-We can use this framework to ask a similar question, but about incomes. 
-Particularly, we can probe the relative rate of increase in heterogeneous incomes across a city, gaining insight into the short term dynamics of neighborhood growth and the emergence of future inequality.
-
-We start by defining several statistical properties of growth rates.
-
-
-while the expectation value of growth rates is denoted $\textrm{E}[\gamma_k]=(\sum_kp_k\bar\gamma_k)/(\sum_{k}p_{k})$ and resources at the beginning of the period over which the growth rates are evaluated $\textrm E[y_0]=\sum_kp_k\bar y_k/\sum_{k^\prime}p_{k^\prime}$. 
-It was shown in KEMP 2022 that the income-averaged growth growth rate can be decomposed in terms of these expectation values as 
-
-\begin{equation*}
-    \textrm E[\bar\eta_k\bar y_{k0}]= \textrm E[\bar\eta_{k}]\textrm E[\bar y_{k0}]+\textrm{cov}[\bar\gamma_k,y_{k0}].
-\end{equation*}
-
-
-The equation then takes a form reminiscent of the price equation
-
-\begin{equation}\label{notpriceequation}
-\bar\gamma_K^i=\frac{\textrm E[\bar\eta_k\bar y_{k0}]}{\textrm E[\bar y_{k0}]}=\textrm E[\Delta\ln\bar y_k]+\frac{1}{\textrm E[\bar y_{k0}]}\textrm{cov}[\bar\gamma_k,\bar y_{k0}]
-\end{equation}
-
-So this result is kind of cool, because we show that the Price equation is valid for the mean of a log of a distribution, and this other equation is valid for the log of a mean. 
-
-As before, we define the growth rate at the second level of aggregation, denoted $K$.
-The expression is
-
-\begin{equation}\label{notpricesecondlevel}
-\bar\gamma_\kappa^i=\textrm E  [\bar \gamma_K^i]+\frac{1}{\textrm E[\bar y_{K0}]}\textrm{cov}[\bar\gamma_K^i,\bar y_{K0}]
-\end{equation}
-
-\noindent Here, all of the income terms are straightforward averages over distributions, indistinguishable from the average taken from the cumulative income distribution
-
-\begin{equation*}
-    \textrm E[\bar y_K]=\frac{\sum_{K}p_k\sum_kp_{k|K}\bar y_{k|K}}{\sum_Kp_k\sum_kp_{k|K}}=\frac{\sum_{Kk}p_{kK}\bar y_{kK}}{\sum_{kK}p_{kK}}.
-\end{equation*}
-
-\noindent The income-averaged growth rate is then computed from this quantity. The expectation over growth rates is computed as an average over the growth rates of each unit, which are taken from \ref{notpriceequation} 
-
-\begin{equation*}
-    \textrm E[\Delta\ln  \bar y_K]=\mathrm E[\bar\gamma_K^i]=\frac{\sum_Kp_K\bar\gamma_K^i}{\sum_Kp_K}.
-\end{equation*}
-
-\noindent The growth rate term in this expression is also the first term of the covariance. We can therefore substitute \ref{notpriceequation} into the first term of \ref{notpricesecondlevel} to get the two level decomposition of the aggregate growth rate (where subscripts are added back)
+We can plug this expression into Eq \ref{populationprice} to retrieve
 
 \begin{equation}
-    \bar\gamma_\kappa^i=\textrm E_\kappa\bigg[\textrm E_K[\bar\gamma_k]+\frac{1}{\textrm E_K[\bar y_{k0}]}\textrm{cov}[\bar\gamma_k,\bar y_{k0}]\bigg]+\frac{1}{\textrm E_\kappa[\bar y_{K0}]}\textrm{cov}_\kappa[\bar\gamma_K^i,\bar y_{K0}]
+\gamma_j^p=\tfrac{1}{w_j}\textrm{cov}_j\big[w_k, z_k\big]+\tfrac{1}{w_j}\textrm E_j
+ \big[\textrm{cov}_k[w_l,z_l]+\textrm E_k
+ [w_l\gamma_l^p
+ ]\big].
 \end{equation}
 
-It should be noted that at the lowest level of aggregation, we use the standard growth rate of the individual unit.
+Now that we have a concise definition for the two-level decomposition, we can describe the decomposition for the dataset across multiple levels. Consider block groups, denoted $\textrm{bg}$, nested in tracts, denoted $\textrm{tr}$, nested in community areas, denoted $\textrm{cm}$, nested in counties, denoted $\textrm{ct}$, nested in the Illinois-side MSA, denoted $\textrm{m}$, we can define the decomposition for log incomes (via the Price equation) as
+
+\begin{equation}
+\begin{split}\label{priceequationmultilevel}
+ \gamma_{\textrm{m}}^p=&\textrm E_{\textrm{m,ct,cm,tr}}\big[\bar w_{\textrm{bg}}\gamma_{\textrm{bg}}^p
+ \big]+\textrm E_{\textrm{m,ct,cm}}
+\Big[\textrm{cov}_{\textrm{tr}}\big(\bar w_{\textrm{bg}},z_{\textrm{bg}}\big)\Big]\\
+&+
+ \textrm E_{\textrm{m,ct}}
+ \Big[\textrm{cov}_{\textrm{cm}}\big(\bar w_{\textrm{tr}},z_{\textrm{tr}}\big)\Big]+\textrm E_{\textrm{m}}
+ \Big[\textrm{cov}_{\textrm{ct}}\big(\bar w_{\textrm{cm}},z_\textrm{cm}\big)\Big]\\
+ &+\textrm{cov}_{\textrm{m}}\big(\bar w_{\textrm{ct}},z_{\textrm{ct}}\big).
+\end{split}
+\end{equation}
+Here, the fitnesses are normalized to the MSA, such that $\bar w_j=w_j/w_{\textrm{m}}$.
+
+A similar multiscale decomposition can be defined for Eq. \ref{eg:oleypakessupp}, where the decomposition is given by
+\begin{equation}
+    \gamma_j^y=\textrm E_j[\gamma_k^y]+\textrm{cov}_j[f_{y_k},y_k],
+\end{equation}
+where $f_{y_k}=y_k/y_j$.
+This quantity measures the relationship between incomes and growth rates, and is closely related to the emergence of inequality \cite{kemp2022statistical}.
+The full decomposition is then
+\begin{equation}
+\begin{split}\label{priceequationmultilevel}
+ \gamma_{\textrm{m}}^y=&\textrm E_{\textrm{m,ct,cm,tr}}\big[\gamma_{\textrm{bg}}^y
+ \big]+\textrm E_{\textrm{m,ct,cm}}
+\Big[\textrm{cov}_\textrm{tr}[f_{y_\textrm{bg}},y_\textrm{bg}]\Big]\\
+&+
+ \textrm E_{\textrm{m,ct}}
+ \Big[\textrm{cov}_\textrm{cm}[f_{y_\textrm{tr}},y_\textrm{tr}]\Big]+\textrm E_{\textrm{m}}
+ \Big[\textrm{cov}_\textrm{ct}[f_{y_\textrm{cm}},y_\textrm{cm}]\Big]\\
+ &+\textrm{cov}_{\textrm{m}}[f_{y_\textrm{ct}},y_\textrm{ct}].
+\end{split}
+\end{equation}
+We analyze the relationship between income selection effects and changes in the Gini index for spatial, computed is $\Delta G_{\textrm{tr}\rightarrow \textrm{cm}}=G_{t^\prime}-G_t$ 
+The Gini index is computed for a spatial unit by applying the standard Lorenz curve method to the child units' income data at the initial and final timestep.
+We find that selection predicts change in Gini, that is more positive selection predicts increases to inequality, with an $r^2=.5$ across communities and $r^2=.42$ across tracts.
+
+We also partitioned the Gini change data to compare predictions of increases and decreases in Gini. Across communities, selection predicts positive Gini change, $\Delta_\textrm{cm}^{z+}$ better with $r^2=.6$ than negative Gini change, $\Delta_\textrm{cm}^{z-}$ with $r^2=.45$.
+% 
+\begin{figure}[h]
+ \centering
+ \includegraphics[width=\linewidth]{figures/selectioninequality2.pdf}
+ \caption{Income selection effects, $\omega_j^y$ predict changes in gini within communities and tracts (inset). The spatial dynamics of income-selection will be explored in future work.}\label{fig:App2_5selection}
+\end{figure}
+
+\begin{figure}[h]
+ \centering
+ \includegraphics[width=.75\linewidth]{figures/App3.pdf}
+ \caption{Scaling effects are observed in the data. A. relative population shares by county. B. Selection scales superlinearly across counties (top), however this becomes linear when accounting for relative population between tracts (middle), and scale invariant when accounting for tract and county population differences.  }\label{fig:App3}
+\end{figure}
+
+\section{Skew-t Distribution}
+
+A Student-t distribution behaves like a Gaussian distribution with fatter tails. 
+The Student-t distribution is defined
+
+\begin{equation}
+  p^\prime(x|v)=\frac{\Gamma(\frac{\nu+1}{2})}{\sqrt{v\pi}\Gamma(\frac{\nu}{2})}\bigg(1+\frac{x}{\nu^2}\bigg)^{-\frac{-\nu+1}{2}},
+\end{equation}
+where the domain is defined over all real $x$ with degrees of freedom (DOF) $\nu$. 
+The gamma function is given by $\Gamma(\cdot)$, a function often used to normalize gamma distributions. 
+The DOF is bounded below by zero, and the tails converge to that of a Gaussian (shrink) as $\nu\rightarrow\infty$.
+In this limit, the ratio of gamma functions converge to $(\tfrac{\nu}{2})^{1/2}$, and the prefactor converges to $\tfrac{1}{\sqrt{2\pi}}$
+
+The mean of a Student-t distribution can be shifted with parameter $\mu$, and the variance scaled with $\sigma$. 
+The shifted Student-t becomes
+\begin{equation}
+  p(x|\nu,\mu,\sigma)=\frac{1}{\sigma}p^\prime\bigg(\frac{x-\mu}{\sigma}|\nu\bigg),
+\end{equation}
+which converges to a Gaussian centered about $\mu$ and a standard deviation of $\sigma$ as $\nu\rightarrow\infty$.
+
+The Skew-t distribution is then modified by the skew parameter $\alpha$, which is right skewed (the right tail is fatter) when $\alpha>0$ and left skewed with $\alpha<0$.
+The full definition of the Skew-t is
+\begin{equation}\label{eq:fulldistribution}
+  p(x|\nu,\mu,\sigma,\alpha)=\frac{2}{\sigma}p^\prime(z|\mu))P^\prime\bigg(\alpha z\sqrt{\frac{\nu+1}{\nu+z^2}}|\nu+1\bigg),
+\end{equation}
+where the Gaussian standardized value is defined $z=\tfrac{x-\mu}{\sigma}$. The skew is given by the CDF of $p^\prime$, and is defined 
+\begin{equation}
+  P^\prime(x|a)=\int_{-\infty}^xp^\prime(u;a)du
+\end{equation},
+which evaluates to a cumbersome expression that will not be fully defined here.
+This is a modulating function that adds weight to the Student-t distribution depending on the integration limit.
+When the skew factor $\alpha=0$, the function evaluates to 0.5, and the factor of 2 in equation \ref{eq:fulldistribution} cancels, reducing to the symmetric Student-t distribution. When $\alpha \neq 0$, the CDF creates asymmetry by differentially weighting the left and right tails of the distribution.
+For $\alpha > 0$, positive values of $z$ produce larger integration limits, causing $P^\prime$ to exceed 0.5 and amplify the right tail. Conversely, negative values of $z$ produce smaller integration limits, causing $P^\prime$ to fall below 0.5 and suppress the left tail. This creates a right-skewed distribution with a longer tail extending to positive values. 
+This construction allows the skew-t distribution to model data exhibiting both heavy tails (controlled by $\nu$) and asymmetry (controlled by $\alpha$), making it particularly suitable for real-world phenomena such as distributions of selection values where correlated local fluctuations cause extreme values to occur more frequently than predicted by normal distributions.
+
+The fit for the tract level selection data has higher skew, $\alpha_{\textrm{tr}}=0.55$, than community level, $\alpha_{\textrm{cm}}=0.20$, with fatter tails as measured by the degrees of freedom parameter, $\nu_{\textrm{tr}}=1.43$ to $\nu_{\textrm{cm}}=2.47$.
+
+\section{Scaling Behavior of Selection}\label{scaling}
+
+Urban scaling theory posits that many properties of cities can be described by a simple power-law relationship with their population, $p$, $S=S_0p^\beta$. Here, $S$ is the observed, urban indicator while $\beta$ is the scaling exponent.
+When expressed on a logarithmic scale, the expression takes a linear form 
+\begin{equation}
+    \ln S=\ln S_0+\beta\ln p.
+\end{equation}
+We see clearly that $\beta$ describes how the indicator changes with city size.
+Analyzing its value gives us insights into potential mechanisms for how people interact, move and self sort around cities \cite{bettencourt2013origins}.
+
+In this section, we will discuss the scaling behavior of the empirical selection quantities, aggregated to the county level.
+By comparing relative selection quantities between counties, we gain some insights on the spatial assortment and scale-dependence of sorting.
+We note that this is not a typical application of scaling theory, for which the city is the unit of measurement and not subdivisons of the city and analysis is conducted cross-sectionally across an ensemble of cities. 
+As such, the following results cannot be interpreted under standard scaling theory. 
+Secondly, as this analysis is performed for a handful of counties in a single city, we do not attempt to extrapolate these results nor make any general claim about how selection scales in cities or subunits of cities. 
+Instead, we only aim to interpret the scaling results Chicago dataset, and identify patterns worth exploring across other datasets.
+
+In Fig. \ref{fig:App3}, we establish the population share of Chicago MSA counties in Illinois. 
+Cook county, in which the City of Chicago and other urban centers, like Evanston and Oak Park are location, accounts for nearly 2/3rds of the MSA population. 
+Other population centers like Aurora and Naperville, are internally split between the counties of DuPage, Lake, and Will and so on. 
+These populationn splits will become important as we re-weigh selection effects in the scaling analysis.
+
+The first quantity we report is a distributional average selection selection scaling effect, reported at the top of in Fig. \ref{fig:App3}B.
+Here, 
+\begin{equation}
+    \langle\rho_\textrm{tr}\rangle_\textrm{ct}=\frac{\sum_{\textrm{tr}\in\textrm{ct}}|S_\textrm{tr}^p|}{N_{\textrm{tr}}^{\textrm{ct}}},
+\end{equation}where $N_\textrm{tr}^\textrm{ct}$ counts the number of tracts in the county. 
+This quantity measures the total geographic churn, treating a selection event in a low-density tract the same as one in a high-density tract. It measures  the total magnitude of selection events across all places.
+In the data, we observe a scaling coefficient of $\beta_d=1.31$,
+indicating county that is 10\% larger in population has approximately 13\% more total selection magnitude across its tracts
+The superlinearity indicates that selections effects are disproportionately more intense in larger counties.
+
+This measurement equally weighs each spatial unit. 
+If we account for spatial population heterogeneity across units within county, we can measure more directly the human impact on selection. 
+We will do this in two steps: first by just considering the apportionment of households internal to each county.
+The second will introduce weighing counties relative  population, providing a per-capita measurement of selection. 
+
+The population-weighted selection is computed as
+\begin{equation}
+    \Sigma_{\textrm{tr}\rightarrow\textrm{ct}}=\sum_{\textrm{tr}\in\textrm{ct}}p_\textrm{tr}|S_{\textrm{tr}}^p|,
+\end{equation}
+and measurs the total magnitude of selection as experienced by the population.
+We measure a virtually linear scaling coefficient of $\beta_w=1.03$. 
+This means that selection across units scale superlinear with county size, the total impact on the population scales directly with size.
+This implies that the more intense sorting events observed in larger counties are preferentially occurring in less populated tracts.  This frontier of demographic change in Chicago lies in more sparsely populated populated tracts across counties.
+
+Finally, when we consider the relative population of each county, as we do for the expression
+\begin{equation}
+    \textrm E_\textrm{ct}[\rho_\textrm{tr}]=\frac{\Sigma_{\textrm{tr}\rightarrow\textrm{ct}}}{p_{ct}}.
+\end{equation}
+This expression measures the average, per-capita intensity of selection.
+We observe a $\beta_p=.03$, meaning that for Chicago, experienced selection is scale-invariant.
+This confirms the insight from before, that an average person in a large county experiences the same intensity of selection as an average person in a small county. 
+
+Generally, we observe that while the system as a whole produces more total churn as indicated by the superlinearity of $\beta_d$, it has organized itself in such a way that the average experience remains constant. It implies that the sorting processes are not accelerating on a per-person basis with city size, and that in this limited case, the "social accelerator" effect that makes cities more productive or innovative does not seem to apply to the intensity of neighborhood churn.
 
 
 \end{document}
+% \subsection{B2. Covariance expressions for the nested price equation}
+
+
+% % \subsubsection*{covariance term definitions for community-level disaggregation}
+
+% % \begin{equation}
+% % \omega^{p}_{tr\rightarrow cm}=\textrm{cov}_{\textrm{cm}}(f_{\textrm{tr}},\ln \bar y_{\textrm{tr}})/\bar\gamma_{\textrm{ct}}^p*100
+% % \end{equation}
+
+
+% % population selection to community from block groups aggregated across tracts
+% % \begin{equation}
+% % \omega^{p}_{\textrm{bg}\rightarrow cm}=E_{\textrm{cm}}\big[\textrm{cov}_{\textrm{tr}}(f_{\textrm{bg}},\ln \bar y_{\textrm{bg}})\big]/\bar\gamma_{\textrm{ct}}^p*100
+% % \end{equation}
+
+% % the sum to give total population selection term
+
+% % \begin{equation}
+% % \omega^{p}_{\textrm{cm}}=\omega^{p}_{tr\rightarrow cm}+\omega^{p}_{\textrm{bg}\rightarrow cm}
+% % \end{equation}
+
+% % income selection at community from tracts
+
+% % \begin{equation}
+% % \omega^{ y}_{tr\rightarrow cm}=\textrm{cov}_{\textrm{cm}}(\gamma_{\textrm{tr}}, \mu_{\textrm{tr}})/\bar\gamma_{\textrm{cm}}^y*100
+% % \end{equation}
+
+% % income selection at community from blockgroups aggregated across tracts
+% % \begin{equation}
+% % \omega^{ y}_{\textrm{bg}\rightarrow cm}=E_{\textrm{cm}}\big[\textrm{cov}_{\textrm{tr}}(f_{\textrm{bg}}, \mu_{\textrm{bg}})\big]/\bar\gamma_{\textrm{cm}}^y*100
+% % \end{equation}
+
+% % sum to give total income selection
+% % \begin{equation}
+% % \omega^{\bar y}_{\textrm{cm}}=\omega^{y}_{tr\rightarrow cm}+\omega^{y}_{\textrm{bg}\rightarrow cm}
+% % \end{equation}
+
+% % Consider hierarchical levels $k,k+1,\ldots$We can describe the general single level variation as 
+% % $\omega_{c\rightarrow p}^x$, for child $c$, parent $p^{(0)}$, and decomposition mode $x$. 
+% % You can then describe $\omega_{c\rightarrow p^{(i)}}^x$ as the variation between the child and its parent, averaged across spatial levels to the $i$th grandparent.
+% % The total variation at level $k$ of type $x$ then becomes 
+
+% % \begin{equation}
+% % \omega_k^x=\sum_{j}\omega_{j\rightarrow k}^x
+% % \end{equation}
+
+% % Put in these terms, the decomposition for population and incomes between arbitrary parent level $K$ and child level $k$ are given respectively by 
+
+% % \begin{equation}
+% % \bar\gamma_K-\textrm E[f_k\bar\gamma_k]=\omega_K^p; \hspace{.25cm}\bar\gamma_{E[\bar y_{K}]}-\textrm E_{}
+% % \end{equation}
+
+% % We also define the absolute variation, averaged across levels, computed as 
+% % \begin{equation}
+% % |\omega_k^x|=\frac{1}{K}\sum_{j}\omega_{j\rightarrow k}^x|
+% % \end{equation}
+% % When summed, these terms represent the cumulative selection effects, $w_{\textrm{cm}}^p=\bar\gamma_{\textrm{cm}}-E_{cm,tr}[\bar w_{\textrm{bg}}\bar\gamma_\textrm{bg}]$, is defined as the sum of these selection terms
+% % \begin{equation}
+% % \omega^{p}_{\textrm{cm}}=\omega^{p}_{tr\rightarrow cm}+\omega^{p}_{\textrm{bg}\rightarrow cm}.
+% % \end{equation}
+% % \noindent It follows that $w_{\textrm{cm}}^p=1-T_{\textrm{bg}\rightarrow cm}^p/\gamma_{\textrm{ct}}^p$, and equal 1 when summed with raw growth rates transmitted from the block group level. 
+% % This implies that when the sum of select effects is less than one, the transmitted growth effects are greater than one. 
+% % This quantity is mapped in Figure\ref{fig:fig2}A, and histogrammed in Figure\ref{fig:fig2}B alongside the selection dominance ratio (SDR), which measures the relative magnitude in variation due to selection terms.
+% % Consider the variation magnitude $V_{\textrm{cm}}^p=|S_{\textrm{bg}\rightarrow cm}^p|+|S_{tr\rightarrow cm}^p|+|T_{\textrm{bg}\rightarrow cm}^p|$. The SDR is defined $\rho_{\textrm{cm}}^p=\rho_{\textrm{bg}\rightarrow cm}^p+\rho_{tr\rightarrow cm}^p$, where $\rho_{x\rightarrow cm}=S_{x\rightarrow cm}^p/V_{\textrm{cm}}^p$.
+% % The SDR, also measured as $\rho_{\textrm{cm}}^p=1-T_{\textrm{bg}\rightarrow cm}^P/V_{\textrm{cm}}^p$.
+% % For interpretability, we present both values as percents by multiplying by 100.
+
+
+%  \documentclass[fleqn,10pt]{wlscirep}
+% \usepackage[utf8]{inputenc}
+% \usepackage[T1]{fontenc}
+% \usepackage{xcolor}
+% \usepackage{amsmath}
+
+% \title{Spatial Anatomy of Growth}
+
+
+% \author[1,*]{Jordan Kemp}
+% \author[2,3,4]{Lu\'is M. A Bettencourt}
+
+% \author[5,6]{Laura Fürsich}
+% \affil[1]{Institute for New Economic Thinking, Department of Geography and the Environment, University of Oxford, Oxford, OX1 3UQ, UK}
+% \affil[2]{University of Chicago, Department of Ecology and Evolution, Chicago IL, 60637, USA}
+% \affil[3]{University of Chicago, Department of Physics, Chicago IL, 60637, USA}
+% \affil[4]{Santa Fe Institute, Santa Fe NM, 87501, USA}
+
+% \affil[5]{University of Chicago, Mansueto Institute for Urban Innovation, Chicago IL, 60637, USA}
+% \affil[6]{University of Chicago, Department of Sociology, Chicago IL, 60637, USA}
+% \affil[*]{corresponding author(s): Jordan Kemp (jordan.kemp@ouce.ox.ac.uk)}
+
+% \keywords{Price Eq.}
+
+% \begin{abstract}
+
+% \end{abstract}
+
+
+% \begin{document}
+
+% \flushbottom
+% \maketitle
+% % * <john.hammersley@gmail.com> 2015-02-09T12:07:31.197Z:
+% %
+% % Click the title above to edit the author information and abstract
+% %
+% \thispagestyle{empty}
+
+% \section*{Methods}
+
+% \subsection{Data Collection}
+
+% Data collected over 10 years ACS survey data between 2009 and 2023.
+
+% Community geospatial data matched to ACS spatial data to include towns and neighborhoods within large cities. Tracts that overlapped more than one community were assigned to whichever they were a majority in.
+
+
+% \section*{Acknowledgements}
+
+% Acknowledgements should be brief, and should not include thanks to anonymous referees and editors, or effusive comments. Grant or contribution numbers may be acknowledged.
+
+% \section*{Author contributions statement}
+
+% Must include all authors, identified by initials, for example:
+% A.A. conceived the experiment(s), A.A. and B.A. conducted the experiment(s), C.A. and D.A. analysed the results. All authors reviewed the manuscript. 
+
+% \section*{Additional information}
+
+% To include, in this order: \textbf{Accession codes} (where applicable); \textbf{Competing interests} (mandatory statement). 
+
+% The corresponding author is responsible for submitting a \href{http://www.nature.com/srep/policies/index.html#competing}{competing interests statement} on behalf of all authors of the paper. This statement must be included in the submitted article file.
+
+% \section{Methods}
+
+
+
+
+% \section{Population statistics for ACS data }
+
+% Consider geographic units $g\in G$, including states, counties, tracts, and blockgroups, as well as nonstandard units like communities (Chicago) or ZIP codes. Consider that unit $g$ can be indexed by its $children$, (eg the blockgroups of a tract), with index $i$. We consider quantities within the geography in year $t$, with consecutive year $t^\prime=t-1$. The incomes $y$ of a geographic bracket are binned into increments denoted $k$, with $K$ total buckets, which is constant across all spatial units across all levels of organization. Let $N_{i,k}(t)$ be the number of households in unit $i$ and income bracket $k$ at time $t$. Let $N_i^g(t) = \sum_k N_{i,k}^g(t)$ be the total number of households in unit $i$ at time $t$. Let $N_g= \sum_k N_{g,k}$ be the total number of households in a spatial unit $g$, and $N=
+% \sum_g N_g$ the total population. Let $c_k$ be the midpoint income value for bracket $k$, it follows that $y_k = \log(c_k)$ is the log-income value associated with bracket $k$. We count $p_{i,k}(t) = \frac{N_{i,k}(t)}{N_i(t)}$ as the proportion of households in unit $i$ that fall into bracket $k$ at time $t$ (assuming $N_i(t) > 0$). Lastly, let $P_{g,t}$ be the total population in unit $g$ in year $t$, where $P_{g,t^\prime}$ is the population for the following year.
+
+% \subsubsection*{Income growth rate, population }
+
+% The average log income for a specific unit $g$ at time $t$ is (where we have dropped $g,t$ for simplicity)
+% \begin{equation*}
+% y_g = \sum_k p_{g,k} y_{g,k} = \frac{\sum_k N_{g,k}y_{g,k}}{N_g}
+% \end{equation*}
+
+% From this definition of $p_i,k$, the change in fraction for income bin $k$ between $t_1,t_2$ is computed as
+% $\Delta p_{t} = p_{t} - p_{t^\prime} $. 
+% The population-weighted average log income for the higher-level unit $g$ at time $t$ is
+% \[
+% \bar{y} = \sum_k \frac{N_k}{N} y
+% \]
+
+% We consider the differential in log income in consecutive years, also known as the population-averaged growth rate. This is written as
+% \begin{equation}
+% \frac{\Delta \bar{y}_{g,t}}{\Delta t} = \frac{\bar{y}_{g,t}- \bar{y}_{g,t^\prime}}{t-t^\prime}\equiv\gamma_{g,t}
+% \end{equation}
+
+
+% In the figure X, we report the population-averaged growth rate for a spatial unit in terms of a ratio to the population-weighted mean across the full area. Where $f_g=N_g/N$, this is given as
+% \begin{equation}
+%  \tilde\gamma_{g,t}=\frac{\gamma_{g,t}}{\sum_{g\in G}f_{g,t}\gamma_{g,t}}
+% \end{equation}
+
+
+% Lastly, we compute the fractional change in population between two years in the entire geographical unit as 
+% \begin{equation}
+%  f_{g,t}=\frac{N_{g,t}-N_{g,t^\prime}}{N_{g,t^\prime}}
+% \end{equation}
+
+
+% \subsubsection*{In-level covariance}
+
+% Here, we calculate the in-level covariance, measuring the covariance between the value of an income bin and the shift in counts for that bin between two years. 
+% In this sense, individuals (represented in census counts) compose the population over which we compute averages.
+% This is very different from the inter-level covariance often featured in a Price equation-like calculation, which treats the next-lowest level of aggregation as the population.
+
+% To compute the covariance between the change in distribution $ \Delta p $ and the log-income $ z $ represented by the bins, we evaluate first the mean change in population across the bins
+
+%  \begin{equation}
+%  \overline{\Delta p_{t}} = E_k[\Delta p_k] = \sum_{k=1}^{K} p_{k,t} \Delta p_k \quad (\text{for } N_{y1} > 0)
+%  \end{equation}
+
+% \noindent The covariance is then defined
+
+%  \begin{equation}
+%  \text{Cov}_{y}(\Delta p, y) = \sum_{k=1}^{K} p_{k,t} \left( \Delta p_{k,t} - \overline{\Delta p}_{t} \right) \left( y_{k,t} - \bar{y}_{t} \right) \quad (\text{for } N_{k} > 0)
+%  \end{equation}
+
+% This measures the covariance between the shift in incomes under normalization (ie which direction is the income distribution moving) and the income values. 
+% This provides a summary statistic for how incomes are growing in this spatial unit.
+% For example, is the income gained all at the top (strong positive), or are people in the lower brackets moving up (smaller positive)?.
+
+% We can define a similar covariance measure that instead considers the raw population counts
+
+%  \begin{equation}
+%  \text{Cov}_{y}(\Delta N_i, y) = \sum_{i=1}^{i} p_{i,t^\prime} \left( \Delta p_i - \overline{\Delta p}_{y1} \right) \left( y_i - \bar{y}_{t} \right) \quad (\text{for } N_{y1} > 0)
+%  \end{equation}
+
+% ---
+
+% When `computeCovTermDirect` is called within `performpricecalculations`, $y_1$ and $y_2$ are consecutive years, and the result $\textrm{Cov}_{y1}(\Delta p, z)$ is stored as `CovTerm`.
+
+% When `calculatedistributioncovariance` is called within `addtimeaveragecovariance`, $ y1 $ is the first year of the analysis period and $ y2 $ is the last year, and the result $ \text{Cov}_{y1}(\Delta p, z) $ is stored as `TimeAverageCov`.
+
+% \begin{figure}[htbp]
+%  \centering
+
+% \includegraphics[width=\textwidth]{figures/MegaFigure.pdf} % Replace with your image file
+ 
+
+% \end{figure}
+
+% $\bar g_i = \\ln (\frac{1+\gamma_1
+% }{1+\bar \gamma})$
+
+% \subsection*{Entropy Calculation for Binned Income Distributions}
+
+% This document outlines the procedure used to calculate the entropy of household income distributions based on binned data obtained from the American Community Survey (ACS) table B19001.
+
+% The Shannon entropy \( H \) is calculated for this discrete distribution as follows:
+%  We filtered the data by agmenting any bins with non-positive counts where the minimum is $N_{g,k}=\epsilon$ where $\epsilon=.01$. 
+% We calculate the total number of households in unit $g$ as $N_g = \sum_{k=1}^{K} N_{g,k}$. We normalized the counts, producing a distribution via $p_{g,k}=N_{g,k}/N$. This yields a discrete probability distribution $P = \{p_1, p_2, \ldots, p_K\}$, where $ \sum_{k=1}^{K} p_{g,k} = 1$.
+
+% \subsubsection*{Entropy Computation} 
+
+% Calculate the Shannon entropy \( H \) using the standard formula, typically using base 2 logarithm to measure entropy in bits:
+% \begin{equation}
+%  H(y) = - \sum_{k=1}^{K} p_k \log_2(p_k)
+% \end{equation}
+%  The computation uses the convention that \( 0 \log_2 0 = 0 \).
+
+% The resulting value \( H(P) \) represents the average uncertainty (in bits) associated with determining the specific income category (out of the \( M \) valid ACS bins) for a household randomly selected from the given spatial unit's population represented in the data.
+
+% Considering the distribution of a spatial unit to be conditional, on the geography, of a distribution of a larger spatial unit.
+% Specifically, that for unit $g\in g^\prime$, we can define $H(y|k\in k^\prime)$. We can then define the information gain by sampling from that subunit $k$ relative to the unit $k^\prime$ as
+
+% \begin{equation}
+%  I(y|k\in k^\prime)=H(y)-H(y|k\in k^\prime)
+% \end{equation}
+
+% Note that this is not a mutual information, as we are not averaging over spatial subunits.
+
+% \subsection*{Technical Note on Bin Widths and Interpretation}
+
+% It is crucial to understand that the entropy calculated by the procedure described above treats each ACS income bin as a \textbf{distinct, discrete category}. The calculation is based solely on the \textit{proportion} of households falling into each category and \textbf{does not utilize the monetary width or range} of these bins (e.g., \$10,000-\$14,999 vs. \$150,000-\$199,999).
+
+% This calculated value \( H(P) \) is the Shannon entropy of the discrete probability distribution defined over the \( N = 16 \) predefined ACS income categories. It quantifies the uncertainty associated with the categorical income classification provided by the Census Bureau.
+
+% This differs significantly from the concept of \textbf{differential entropy}, which applies to continuous probability density functions (PDFs). To calculate differential entropy for the underlying continuous income distribution, one would first need to:
+% \begin{enumerate}
+%  \item Estimate a continuous PDF, \( f(x) \), from the binned ACS data. This might involve assumptions like uniform distribution within bins, interpolation, or fitting a parametric model (e.g., log-normal distribution).
+%  \item Calculate the differential entropy integral:
+%  \[
+%  h(X) = - \inT_{-\infty}^{\infty} f(x) \log_b(f(x)) \, dx
+%  \]
+% \end{enumerate}
+% Differential entropy is sensitive to the scaling of the variable \( x \) (income) and implicitly to the binning strategy used to estimate \( f(x) \). Its interpretation and properties differ from discrete Shannon entropy.
+
+% In summary, the entropy computed in the script measures the diversity or uncertainty across the specific income *categories* defined by the ACS, not the uncertainty of the underlying continuous income variable itself in a way that accounts for the varying dollar ranges of the bins.
+
+
+
+% \subsection*{Hierarchical decomposition of growth rates}
+
+% Consider the following labels: Units $j$, known as $children$, are subunits of $g$, known as a parent
+
+% \subsubsection*{Fitness definition}
+
+% Absolute fitness (population growth factor) for unit $j$ is:
+% \[
+% w_j = \frac{N_{j,t}}{N_{j,t^\prime}}
+% \]
+
+% \noindent The population proportion of unit $j$ within $g$ at time $t$ is:
+% \[
+% p_{j,t^\prime} = \frac{N_{j,t^\prime}}{N_{g,t^\prime}}
+% \]
+
+% \noindent The average fitness across units in $G$ is:
+% \begin{equation}
+% \bar{w}_g = \sum_j p_{i,t^\prime} w_j = \frac{N_{g,t}}{N_{g,t^\prime}}
+% \end{equation}
+
+% The Price equation decomposes the change $\Delta \bar{y}_g$ as:
+% \begin{equation*}
+% \Delta \bar{y}_g = \frac{\text{Cov}_g(w_j, y_{j,t^\prime})}{\bar{w}_g} + \frac{\text{E}_g(w_j \Delta y_j)}{\bar{w}_g}
+% \end{equation*}
+% where $\Delta y_j = y_{j,t} - y_{i,t^\prime}$, and the covariance and expectation are taken across units $j$ within unit $g$, weighted by $p_j(t)$.
+% When defined over a timestep of one year, $\Delta y_j\equiv\gamma_j$ and the change in incomes is expressed as the annually compounded growth rate in incomes. 
+% Here, the fitness is interpreted as the change in probability between time steps. This fitness is defined similarly to $\Delta p_k$ in the previous section, where now each member of a population is a distinct spatial element, rather than a trait may need elaboration).
+% Our equation is then written as 
+
+% \begin{equation}
+% \gamma_g = \frac{\text{Cov}_g(w_j, y_{j,t^\prime})}{\bar{w}_g} + \frac{\text{E}_g(w_j, \gamma_j)}{\bar{w}_g}
+% \end{equation}
+
+% From Bettencourt 2021, we know we can repeat this decomposition at each level of aggregation. This results in a fully decomposed growth rate for an MSA as 
+
+% \begin{equation}
+% \gamma_{\textrm{m}} = \frac{\text{Cov}_{\textrm{m}}(w_{\textrm{ct}}, y_{ct,t^\prime})}{\bar{w}_{\textrm{m}}} +
+% E_{\textrm{m}}\Bigg[
+% \frac{\text{Cov}_{\textrm{ct}}(w_{\textrm{cm}}, y_{cm,t^\prime})}{\bar{w}_{\textrm{ct}}}+E_{\textrm{ct}}\Bigg[
+% \frac{\text{Cov}_{\textrm{cm}}(w_{\textrm{tr}}, y_{tr,t^\prime})}{\bar{w}_{\textrm{cm}}}+E_{\textrm{cm}}\bigg[
+% \frac{\text{Cov}_{\textrm{tr}}(w_{\textrm{bg}}, y_{\textrm{bg},t^\prime})}{\bar{w}_{\textrm{tr}}}+\frac{\textrm E_{\textrm{tr}}[
+% \gamma_{\textrm{bg}}]}{\bar w_{\textrm{tr}}}\bigg]\Bigg]\Bigg]
+% \end{equation}
+
+% \subsubsection*{Derivation of Terms}
+
+
+% Population-weighted covariance between $w_i$ and initial average log income $j_i(t)$ is:
+
+% \begin{equation*}
+% \text{Cov}_g(w_j, y_{j,t}) = \sum_i p_{i,t^\prime} [w_j - \bar{w}_g][y_{j,t^\prime} - \bar{y}_{g,t}]
+% \end{equation*}
+
+
+% Thus, the covariances are :
+% \begin{equation*}
+% \text{Term 1} = \frac{\sum_i p_{i,t}[w_j - \bar{w}_g][y_{j,t^\prime} - \bar{y}_{g,t}]}{\bar{w}_g}
+% \end{equation*}
+
+% Population-weighted expectation of the product of $w_i$ and the within-unit change $\Delta z_i$:
+% \begin{equation*}
+% \text{E}_g(w_j \gamma_j) = \sum_j p_{j,t^\prime} w_j\gamma_j
+% \end{equation*}
+
+% Thus, the second term of the Price equation is the average growth rate. This is computed as 
+
+% \begin{equation*}
+% \gamma_{\textrm{bg}}=\log\bigg[\sum_k^K N_{\textrm{bg},k,t}c_k\Bigg]- \log\bigg [\sum_k^K N_{\textrm{bg},k,t^\prime}c_k\Bigg]=y_{\textrm{bg},t}=y_{\textrm{bg},t^\prime}
+% \end{equation*}
+
+% should hold exactly, apart from floating-point precision differences.
+
+% \end{document}
+
+% \end{document}
+
+% \end{document},selection preferencesselection preferenceschurnpopulation churn 
+% This analysis could be extended to examine the bidirectional influence of residential selection and capital allocation through the dynamics of point of interest (POI) dependency networks \cite{yabe2025behaviour}, particularly as post-disaster recovery climate disasters dramatically reorder  \cite{park2024post}. selection 
