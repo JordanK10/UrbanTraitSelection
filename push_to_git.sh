@@ -21,6 +21,7 @@ git add . \
     ':!*.pkl' \
     ':!*.key' \
     ':!*.pdf'
+    ':!*.RDataTmp'
 
 # Manually unstage the specific forbidden file
 git restore --staged census_data1.pkl 2>/dev/null
