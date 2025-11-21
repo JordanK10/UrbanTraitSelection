@@ -21,6 +21,16 @@ git add . \
     ':!*.pkl' \
     ':!*.key' \
     ':!*.pdf' \
+    ':!*.png' \
+    ':!*.jpg' \
+    ':!*.jpeg' \
+    ':!*.gif' \
+    ':!*.bmp' \
+    ':!*.tiff' \
+    ':!*.ico' \
+    ':!*.webp' \
+    ':!*.svg' \
+    ':!*.eps' \
     ':!*.RDataTmp' \
     ':!*.shp' \
     ':!*.geojson' \
