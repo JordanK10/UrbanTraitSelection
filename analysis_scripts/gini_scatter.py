@@ -21,6 +21,7 @@ import warnings
 from scipy import stats
 from scipy.stats import t
 import statsmodels.api as sm
+import seaborn as sns
 warnings.filterwarnings('ignore')
 
 # Check for 'null' argument to switch directories
@@ -38,25 +39,29 @@ outline_color = '#3D3D3D'
 purple_dot = '#caa8d6'
 orange_dot = '#f2b58c'
 
-def load_data():
+def load_data(input_dir):
     """Load community, block group, and tract data"""
     try:
         # Load community data for cumulative PNC_st and population growth
-        cm_data = pd.read_csv(os.path.join(INPUT_DIR, "bg_cm_exported_terms.csv"))
+        cm_data = pd.read_csv(os.path.join(input_dir, "bg_cm_exported_terms.csv"))
         print(f"Successfully loaded community data: {len(cm_data)} rows")
         
         # Load block group data for Gini calculation
-        bg_data = pd.read_csv(os.path.join(INPUT_DIR, "bg_bg_exported_terms.csv"))
+        bg_data = pd.read_csv(os.path.join(input_dir, "bg_bg_exported_terms.csv"))
         print(f"Successfully loaded block group data: {len(bg_data)} rows")
         
         # Load tract data for Gini calculation
-        tr_data = pd.read_csv(os.path.join(INPUT_DIR, "bg_tr_exported_terms.csv"))
+        tr_data = pd.read_csv(os.path.join(input_dir, "bg_tr_exported_terms.csv"))
         print(f"Successfully loaded tract data: {len(tr_data)} rows")
+
+        # Load county data for Gini calculation and weighting
+        ct_data = pd.read_csv(os.path.join(input_dir, "bg_ct_exported_terms.csv"))
+        print(f"Successfully loaded county data: {len(ct_data)} rows")
         
-        return cm_data, bg_data, tr_data
+        return cm_data, bg_data, tr_data, ct_data
     except Exception as e:
-        print(f"Error loading data: {e}")
-        return None, None, None
+        print(f"Error loading data from {input_dir}: {e}")
+        return None, None, None, None
 
 def calculate_gini_coefficient(incomes, weights=None):
     """
@@ -398,7 +403,7 @@ def extract_selection_income_pnc(cm_data):
     return selection_vals
 
 def create_scatter_plot(data, x_col, y_col, color_col, title, xlabel, ylabel, output_filename, 
-                      size_col=None, color_label='Color Variable', filter_col=None, filter_threshold=None, bifurcate_on_color=False, ylim=None, xlim=None):
+                      size_col=None, color_label='Color Variable', filter_col=None, filter_threshold=None, bifurcate_on_color=False, ylim=None, xlim=None, base_output_dir=None):
     """
     Generates a scatter plot with a linear regression fit and confidence interval.
 
@@ -558,7 +563,7 @@ def create_scatter_plot(data, x_col, y_col, color_col, title, xlabel, ylabel, ou
     #     ax.set_xlim(left = xlim[0], right = xlim[1])
 
     # 10. Save figure
-    output_dir = os.path.join(BASE_OUTPUT_DIR, "gini_scatter_plots")
+    output_dir = os.path.join(base_output_dir, "gini_scatter_plots")
     os.makedirs(output_dir, exist_ok=True)
     full_path = os.path.join(output_dir, output_filename)
     
@@ -568,11 +573,13 @@ def create_scatter_plot(data, x_col, y_col, color_col, title, xlabel, ylabel, ou
     print(f"Plot saved to {full_path}")
 
 
-def main():
+def run_analysis(input_dir, base_output_dir):
     # Load data
-    cm_data, bg_data, tr_data = load_data()
+    cm_data, bg_data, tr_data, ct_data = load_data(input_dir)
     if cm_data is None:
         return
+
+    all_ct_data = None # Initialize to handle cases where it might not be created
 
     # --- Gini Calculations (Community-level) ---
     # Prepare BG income data and calculate Gini change (across BGs, grouped by community)
@@ -641,7 +648,7 @@ def main():
     all_cm_data['selection_income_pnc'] = extract_selection_income_pnc(all_cm_data)/100
 
     # Define plot configurations
-    output_dir = os.path.join(BASE_OUTPUT_DIR, "gini_scatter_plots")
+    output_dir = os.path.join(base_output_dir, "gini_scatter_plots")
     os.makedirs(output_dir, exist_ok=True)
     
     # Check for PopInitial_cm column for weighting/sizing
@@ -779,6 +786,16 @@ def main():
     else:
         print(f"Warning: Skipping 'Tract Selection PNC vs. Change in BG Gini' plot. Missing columns: '{selection_pnc_col_tr}' or 'gini_change_bg_by_tract'.")
 
+    # --- NEW: Report population-weighted average Gini changes ---
+    print("\n--- Population-Weighted Average Gini Change Summary ---")
+    report_weighted_avg_gini_change(all_tr_data, 'tract')
+    report_weighted_avg_gini_change(all_cm_data, 'community')
+    report_weighted_avg_gini_change(all_ct_data, 'county')
+
+    # Create the summary heatmap
+    create_gini_summary_heatmap(all_tr_data, all_cm_data, all_ct_data, output_dir)
+    # --- END NEW ---
+
     # Generate plots
     for config in plot_configs:
         # The filter is the same for all plots in this case
@@ -791,6 +808,7 @@ def main():
             xlabel=config['xlabel'],
             ylabel=config['ylabel'],
             output_filename=config['output'].split('/')[-1], # Use the filename from config
+            base_output_dir=base_output_dir,
             color_label=config['color_label'],
             filter_col=config['filter_col'],
             filter_threshold=config['filter_threshold'],
@@ -799,6 +817,441 @@ def main():
             ylim=config["ylim"],
             xlim=config["xlim"]
         )
+
+def get_grouped_income_data(bg_income_data, group_by_col):
+    """
+    Prepare block group data for Gini calculation, for grouping by tracts.
+    """
+    print("Preparing block group income data (for tract grouping)...")
+    
+    log_initial_income_col, log_final_income_col = None, None
+    for col in bg_income_data.columns:
+        if 'LogAvgIncInitial' in col:
+            log_initial_income_col = col
+        elif 'LogAvgIncFinal' in col:
+            log_final_income_col = col
+    
+    if log_initial_income_col is None or log_final_income_col is None:
+        print(f"Warning: Could not find log income columns in block group data. Available columns: {bg_income_data.columns.tolist()}")
+        return None
+    
+    bg_prepared = bg_income_data.copy()
+    
+    if 'ParentCounty' not in bg_prepared.columns:
+        print("Error: ParentCounty column not found in block group data")
+        return None
+    
+    bg_prepared['initial_income'] = np.exp(bg_prepared[log_initial_income_col])
+    bg_prepared['final_income'] = np.exp(bg_prepared[log_final_income_col])
+    
+    pop_col = 'PopInitial_bg' if 'PopInitial_bg' in bg_prepared.columns else None
+    if pop_col:
+        bg_prepared['weight'] = bg_prepared[pop_col]
+    else:
+        bg_prepared['weight'] = 1
+
+    result = bg_prepared[['ParentCounty', 'initial_income', 'final_income', 'weight']].copy()
+    result = result.dropna(subset=['ParentCounty'])
+    result = result[(result['initial_income'] > 0) & (result['final_income'] > 0)]
+    
+    print(f"Prepared {len(result)} block group records for Gini calculation (grouped by tract)")
+    return result
+
+def extract_cumulative_income_pnc(cm_data):
+    """Extract cumulative income PNC_st from community data"""
+    print("Extracting cumulative income PNC_st...")
+    
+    # Look for the PNC income columns
+    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_PNC_st'
+    selection_col = 'Sel_cm_from_tr_inc_PNC_st'
+    
+    if transmitted_col not in cm_data.columns or selection_col not in cm_data.columns:
+        print(f"Warning: Expected PNC columns not found. Available columns: {cm_data.columns.tolist()}")
+        return None
+    
+    # Calculate cumulative PNC_st (transmitted + selection)
+    transmitted_vals = cm_data[transmitted_col].fillna(0)
+    selection_vals = cm_data[selection_col].fillna(0)
+    
+    cumulative_pnc = transmitted_vals + selection_vals
+    
+    print(f"Cumulative income PNC_st statistics:")
+    print(f"  Mean: {cumulative_pnc.mean():.4f}")
+    print(f"  Std: {cumulative_pnc.std():.4f}")
+    print(f"  Min: {cumulative_pnc.min():.4f}")
+    print(f"  Max: {cumulative_pnc.max():.4f}")
+    
+    return cumulative_pnc
+
+def extract_transmitted_income_pnc(cm_data):
+    """Extract transmitted income PNC_st from community data"""
+    print("Extracting transmitted income PNC_st...")
+    
+    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_PNC_st'
+    
+    if transmitted_col not in cm_data.columns:
+        print(f"Warning: Expected PNC column not found: {transmitted_col}. Available columns: {cm_data.columns.tolist()}")
+        return None
+    
+    transmitted_vals = cm_data[transmitted_col].fillna(0)
+    
+    print(f"Transmitted income PNC_st statistics:")
+    print(f"  Mean: {transmitted_vals.mean():.4f}")
+    print(f"  Std: {transmitted_vals.std():.4f}")
+    print(f"  Min: {transmitted_vals.min():.4f}")
+    print(f"  Max: {transmitted_vals.max():.4f}")
+    
+    return transmitted_vals
+
+def extract_selection_income_pnc(cm_data):
+    """Extract selection income PNC_st from community data"""
+    print("Extracting selection income PNC_st...")
+    
+    selection_col = 'Sel_cm_from_tr_inc_PNC_st'
+    
+    if selection_col not in cm_data.columns:
+        print(f"Warning: Expected PNC column not found: {selection_col}. Available columns: {cm_data.columns.tolist()}")
+        return None
+
+    selection_vals = cm_data[selection_col].fillna(0)
+    
+    print(f"Selection income PNC_st statistics:")
+    print(f"  Mean: {selection_vals.mean():.4f}")
+    print(f"  Std: {selection_vals.std():.4f}")
+    print(f"  Min: {selection_vals.min():.4f}")
+    print(f"  Max: {selection_vals.max():.4f}")
+    
+    return selection_vals
+
+def create_scatter_plot(data, x_col, y_col, color_col, title, xlabel, ylabel, output_filename, 
+                      size_col=None, color_label='Color Variable', filter_col=None, filter_threshold=None, bifurcate_on_color=False, ylim=None, xlim=None, base_output_dir=None):
+    """
+    Generates a scatter plot with a linear regression fit and confidence interval.
+
+    Args:
+        data (pd.DataFrame): The dataframe containing the plot data.
+        x_col (str): The name of the column for the x-axis.
+        y_col (str): The name of the column for the y-axis.
+        color_col (str): The name of the column for coloring points.
+        title (str): The title of the plot.
+        xlabel (str): The label for the x-axis.
+        ylabel (str): The label for the y-axis.
+        output_filename (str): The path to save the output PDF file.
+        size_col (str, optional): The column to scale point sizes by and use for weighting regression.
+        color_label (str, optional): The label for the color bar.
+        filter_col (str, optional): The column to filter data on. Defaults to None.
+        bifurcate_on_color (bool, optional): If True, splits data by color value for separate fits.
+    """
+    # 1. Filter data
+    if filter_col and filter_threshold is not None:
+        plot_data = data[data[filter_col] >= filter_threshold].copy()
+    else:
+        plot_data = data.copy()
+
+    if plot_data.empty:
+        print(f"Warning: No data to plot for {title} after filtering. Skipping plot.")
+        return
+
+    # Drop rows with NaN in essential columns for plotting and regression
+    essential_cols = [x_col, y_col, color_col]
+    if size_col:
+        essential_cols.append(size_col)
+    
+    plot_data.dropna(subset=essential_cols, inplace=True)
+
+    if plot_data.empty:
+        print(f"Warning: No data to plot for {title} after dropping NaNs. Skipping plot.")
+        return
+
+    # 2. Prepare point sizes
+    if size_col and size_col in plot_data.columns:
+        pop = plot_data[size_col]
+        s_min, s_max = 15, 200
+        # Handle case where all population values are the same
+        if pop.min() == pop.max():
+            sizes = pd.Series(s_min, index=plot_data.index)
+        else:
+            sizes = s_min + ((pop - pop.min()) / (pop.max() - pop.min()) * (s_max - s_min))
+        plot_data['point_size'] = sizes
+    else:
+        plot_data['point_size'] = 50 # Default size
+
+    # 3. Setup plot
+    fig, ax = plt.subplots(figsize=(3.25, 2.9))
+    fig.patch.set_facecolor('white')
+
+    
+    for spine in ax.spines.values():
+        spine.set_edgecolor(outline_color)
+        spine.set_linewidth(1.5)
+
+    # 4. Bifurcate data for coloring and fitting
+    low_income_data = plot_data[plot_data[color_col] <= 0]
+    high_income_data = plot_data[plot_data[color_col] > 0]
+
+    # 5. Scatter plot (with bifurcated colors and scaled sizes)
+    ax.scatter(low_income_data[x_col], low_income_data[y_col], color=purple_dot, alpha=0.25, s=low_income_data['point_size'], edgecolors=outline_color, linewidth=0.8, label='Below/Eq. Median Income')
+    ax.scatter(high_income_data[x_col], high_income_data[y_col], color=orange_dot, alpha=0.25, s=high_income_data['point_size'], edgecolors=outline_color, linewidth=0.8, label='Above Median Income')
+    
+    # --- Fit Lines and Stats Text Box ---
+    # Full data fit
+    y = plot_data[y_col]
+    X = sm.add_constant(plot_data[[x_col]])
+    weights = plot_data[size_col] if size_col else None
+    
+    wls_model = sm.WLS(y, X, weights=weights)
+    wls_fit = wls_model.fit()
+    
+    slope = wls_fit.params[x_col]
+    intercept = wls_fit.params['const']
+    r_squared = wls_fit.rsquared
+    p_value = wls_fit.pvalues[x_col]
+
+    stats_text = f'Full Fit:\n  m={slope:.3f}, R²={r_squared:.3f}'
+
+    # Plot the main fit line for the full dataset
+    x_pred_full = pd.DataFrame({x_col: np.linspace(plot_data[x_col].min(), plot_data[x_col].max(), 100)})
+    x_pred_full_sm = sm.add_constant(x_pred_full, has_constant='add')
+    y_pred_full = wls_fit.predict(x_pred_full_sm)
+    ax.plot(x_pred_full[x_col], y_pred_full, color='#3D3D3D', linestyle='-', linewidth=2, label='Full Fit')
+    
+    # Confidence Interval for full fit
+    pred_full = wls_fit.get_prediction(x_pred_full_sm)
+    ci_full_df = pred_full.summary_frame(alpha=0.05)
+    ax.fill_between(x_pred_full[x_col], ci_full_df['mean_ci_lower'], ci_full_df['mean_ci_upper'], color='#B0B0B0', alpha=0.3)
+
+    if bifurcate_on_color:
+        # Fit for relatively growing subset
+        if len(high_income_data) > 2:
+            y_high = high_income_data[y_col]
+            X_high = sm.add_constant(high_income_data[[x_col]])
+            weights_high = high_income_data[size_col] if size_col else None
+
+            wls_model_high = sm.WLS(y_high, X_high, weights=weights_high)
+            wls_fit_high = wls_model_high.fit()
+            
+            x_pred_high = pd.DataFrame({x_col: np.linspace(high_income_data[x_col].min(), high_income_data[x_col].max(), 100)})
+            x_pred_high_sm = sm.add_constant(x_pred_high, has_constant='add')
+            y_pred_high = wls_fit_high.predict(x_pred_high_sm)
+            ax.plot(x_pred_high[x_col], y_pred_high, color=custom_orange, linestyle='--', linewidth=2)
+            
+            pred_high = wls_fit_high.get_prediction(x_pred_high_sm)
+            ci_high_df = pred_high.summary_frame(alpha=0.05)
+            ax.fill_between(x_pred_high[x_col], ci_high_df['mean_ci_lower'], ci_high_df['mean_ci_upper'], color=custom_orange, alpha=0.2)
+            
+            stats_text += f'\nAbove Median Fit:\n  m={wls_fit_high.params[x_col]:.3f}, R²={wls_fit_high.rsquared:.3f}'
+        
+        # Fit for relatively shrinking subset
+        if len(low_income_data) > 2:
+            y_low = low_income_data[y_col]
+            X_low = sm.add_constant(low_income_data[[x_col]])
+            weights_low = low_income_data[size_col] if size_col else None
+
+            wls_model_low = sm.WLS(y_low, X_low, weights=weights_low)
+            wls_fit_low = wls_model_low.fit()
+
+            x_pred_low = pd.DataFrame({x_col: np.linspace(low_income_data[x_col].min(), low_income_data[x_col].max(), 100)})
+            x_pred_low_sm = sm.add_constant(x_pred_low, has_constant='add')
+            y_pred_low = wls_fit_low.predict(x_pred_low_sm)
+            ax.plot(x_pred_low[x_col], y_pred_low, color=custom_purple, linestyle='--', linewidth=2)
+
+            pred_low = wls_fit_low.get_prediction(x_pred_low_sm)
+            ci_low_df = pred_low.summary_frame(alpha=0.05)
+            ax.fill_between(x_pred_low[x_col], ci_low_df['mean_ci_lower'], ci_low_df['mean_ci_upper'], color=custom_purple, alpha=0.2)
+            
+            stats_text += f'\nBelow/Eq. Median Fit:\n  m={wls_fit_low.params[x_col]:.3f}, R²={wls_fit_low.rsquared:.3f}'
+        
+    # ax.text(0.7, 0.3, stats_text, transform=ax.transAxes, fontsize=7,
+    #         verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    # 8. Labels, title, grid, and style
+    # ax.set_xlabel(xlabel, fontsize=14, color='#333333')
+    # ax.set_ylabel(ylabel, fontsize=14, color='#333333')
+    ax.axhline(0, color='#3D3D3D', linestyle='-', linewidth=1, alpha=0.5)
+    ax.axvline(0, color='#3D3D3D', linestyle='-', linewidth=1, alpha=0.5)
+
+    for spine in ['top', 'right', 'left', 'bottom']:
+        ax.spines[spine].set_color('#CCCCCC')
+    ax.tick_params(axis='x', which='major', labelsize=12, colors='#333333')
+    ax.tick_params(axis='y', which='major', labelsize=12, colors='#333333')
+    
+    # 9. Legend
+    # ax.legend(loc='lower right', fontsize=10)
+    
+    # if ylim:
+    #     ax.set_ylim(bottom = ylim[0], top = ylim[1])
+    # if xlim:
+    #     ax.set_xlim(left = xlim[0], right = xlim[1])
+
+    # 10. Save figure
+    output_dir = os.path.join(base_output_dir, "gini_scatter_plots")
+    os.makedirs(output_dir, exist_ok=True)
+    full_path = os.path.join(output_dir, output_filename)
+    
+    plt.tight_layout()
+    plt.savefig(full_path, format='pdf', dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close()
+    print(f"Plot saved to {full_path}")
+
+
+def create_gini_summary_heatmap(all_tr_data, all_cm_data, all_ct_data, output_dir):
+    """
+    Calculates weighted mean and std dev of Gini change for each level and
+    plots them as a summary heatmap.
+    """
+    print("\n--- Generating Gini Change Summary Heatmap ---")
+    summary_data = {}
+
+    # Helper to calculate stats
+    def get_stats(df, level_name):
+        level_map = {
+            'Tracts': ('gini_change_bg_by_tract', 'PopInitial_tr'),
+            'Communities': ('gini_change_bg', 'PopInitial_cm'),
+            'Counties': ('gini_change_bg_by_county', 'PopInitial_ct'),
+        }
+        if df is None or df.empty:
+            return {'Mean': np.nan, 'Std Dev': np.nan}
+
+        gini_col, pop_col = level_map[level_name]
+        if gini_col not in df.columns or pop_col not in df.columns:
+            return {'Mean': np.nan, 'Std Dev': np.nan}
+
+        df_filtered = df[[gini_col, pop_col]].dropna()
+        if df_filtered.empty or df_filtered[pop_col].sum() == 0:
+            return {'Mean': np.nan, 'Std Dev': np.nan}
+
+        # Weighted Mean
+        mean = np.average(df_filtered[gini_col], weights=df_filtered[pop_col])
+        # Weighted Std Dev
+        variance = np.average((df_filtered[gini_col] - mean)**2, weights=df_filtered[pop_col])
+        std_dev = np.sqrt(variance)
+        
+        return {'Mean': mean, 'Std Dev': std_dev}
+
+    # Calculate stats for each level
+    summary_data['Tracts'] = get_stats(all_tr_data, 'Tracts')
+    summary_data['Communities'] = get_stats(all_cm_data, 'Communities')
+    summary_data['Counties'] = get_stats(all_ct_data, 'Counties')
+
+    # Create DataFrame for plotting
+    df_plot = pd.DataFrame(summary_data).T # Transpose to have levels as rows
+
+    if df_plot.isnull().all().all():
+        print("Cannot generate Gini summary heatmap; not enough data.")
+        return
+
+    # Create the custom colormap from white to purple
+    custom_cmap = mcolors.LinearSegmentedColormap.from_list('custom_white_purple', ['white', custom_purple])
+    output_path = os.path.join(output_dir, 'gini_change_summary_heatmap.pdf')
+
+    _plot_gini_summary_heatmap(
+        df_to_plot=df_plot.T, # Transpose back for plotting
+        title='Gini Change Summary by Level',
+        output_path=output_path,
+        cmap=custom_cmap,
+        vmin=None,
+        vmax=None
+    )
+
+def _plot_gini_summary_heatmap(df_to_plot, title, output_path, cmap, vmin, vmax):
+    """A private helper function to generate and save a summary heatmap for Gini stats."""
+    n_rows, n_cols = df_to_plot.shape
+    figsize = (2.5 * n_cols, 1.5 * n_rows)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Manually format annotations
+    annotations = np.array([["{:.4f}".format(val) for val in row] for row in df_to_plot.values])
+
+    sns.heatmap(
+        df_to_plot,
+        annot=annotations,
+        fmt="",
+        cmap=cmap,
+        linewidths=.5,
+        ax=ax,
+        vmin=vmin, 
+        vmax=vmax,
+        cbar=False,
+        annot_kws={"size": 20}
+    )
+        
+    ax.set_title(title, fontsize=18)
+    
+    # Set labels
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    ax.set_xticklabels(df_to_plot.columns, rotation=0, fontsize=14)
+    ax.set_yticklabels(df_to_plot.index, rotation=0, fontsize=14)
+    
+    plt.tight_layout()
+    plt.savefig(output_path, format='pdf')
+    plt.close(fig)
+    print(f"  Successfully saved Gini summary heatmap to {output_path}")
+
+
+def report_weighted_avg_gini_change(df, level_name):
+    """
+    Calculates and prints the population-weighted average of Gini change for a given level.
+    """
+    if df is None or df.empty:
+        print(f"Cannot report weighted average Gini change for {level_name}s: Data is not available.")
+        return
+
+    level_map = {
+        'tract': ('gini_change_bg_by_tract', 'PopInitial_tr'),
+        'community': ('gini_change_bg', 'PopInitial_cm'),
+        'county': ('gini_change_bg_by_county', 'PopInitial_ct'),
+    }
+
+    if level_name not in level_map:
+        print(f"Error: Unknown level '{level_name}' for Gini change reporting.")
+        return
+
+    gini_col, pop_col = level_map[level_name]
+
+    if gini_col not in df.columns or pop_col not in df.columns:
+        print(f"Cannot report weighted average Gini change for {level_name}s: Missing required columns ('{gini_col}' or '{pop_col}').")
+        return
+
+    # Drop rows with missing values in the columns of interest
+    df_filtered = df[[gini_col, pop_col]].dropna()
+
+    if df_filtered.empty:
+        print(f"Cannot report weighted average Gini change for {level_name}s: No valid data after cleaning.")
+        return
+        
+    total_population = df_filtered[pop_col].sum()
+    
+    if total_population == 0:
+        print(f"Cannot report weighted average Gini change for {level_name}s: Total population is zero.")
+        return
+
+    weighted_avg = np.average(df_filtered[gini_col], weights=df_filtered[pop_col])
+    
+    print(f"Population-weighted average change in Gini across all {level_name}s: {weighted_avg:.6f}")
+
+def main():
+    """
+    Orchestrates running the analysis for single or multiple (null) datasets.
+    """
+    if 'null' in sys.argv:
+        null_input_root = 'output_terms_null'
+        null_output_root = 'plots_null'
+        
+        if not os.path.isdir(null_input_root):
+            print(f"Error: Null input directory not found at '{null_input_root}'")
+            return
+            
+        for subdir_name in sorted(os.listdir(null_input_root)):
+            input_subdir = os.path.join(null_input_root, subdir_name)
+            if os.path.isdir(input_subdir):
+                output_subdir = os.path.join(null_output_root, subdir_name)
+                print(f"\n--- Processing dataset: {subdir_name} ---")
+                run_analysis(input_subdir, output_subdir)
+    else:
+        # Standard execution
+        run_analysis('output_terms', 'plots')
 
 if __name__ == "__main__":
     main() 

@@ -22,31 +22,24 @@ sns.set_palette("viridis")
 import os
 import sys
 
-if 'null' in sys.argv:
-    INPUT_DIR = 'output_terms_null'
-    BASE_OUTPUT_DIR = 'plots_null'
-else:
-    INPUT_DIR = 'output_terms'
-    BASE_OUTPUT_DIR = 'plots'
-
-def load_data():
+def load_data(input_dir):
     """Load and prepare the data from CSV files."""
-    print("Loading data...")
+    print(f"Loading data from {input_dir}...")
     
     # Load community-level data
     try:
-        cm_data = pd.read_csv(os.path.join(INPUT_DIR, 'bg_cm_exported_terms.csv'))
+        cm_data = pd.read_csv(os.path.join(input_dir, 'bg_cm_exported_terms.csv'))
         print(f"Loaded community data: {cm_data.shape[0]} rows, {cm_data.shape[1]} columns")
     except FileNotFoundError:
-        print("Error: bg_cm_exported_terms.csv not found")
+        print(f"Error: bg_cm_exported_terms.csv not found in {input_dir}")
         return None, None
     
     # Load tract-level data
     try:
-        tr_data = pd.read_csv(os.path.join(INPUT_DIR, 'bg_tr_exported_terms.csv'))
+        tr_data = pd.read_csv(os.path.join(input_dir, 'bg_tr_exported_terms.csv'))
         print(f"Loaded tract data: {tr_data.shape[0]} rows, {tr_data.shape[1]} columns")
     except FileNotFoundError:
-        print("Warning: bg_tr_exported_terms.csv not found, using only community data")
+        print(f"Warning: bg_tr_exported_terms.csv not found in {input_dir}, using only community data")
         tr_data = None
     
     return cm_data, tr_data
@@ -146,7 +139,7 @@ def add_regression_line_and_stats(ax, x, y, color='red'):
     ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=9,
             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
-def create_scatter_plot(data, x_var, y_var, title, filename, figsize=(10, 8)):
+def create_scatter_plot(data, x_var, y_var, title, filename, base_output_dir, figsize=(10, 8)):
     """Create a scatter plot with linear fit and save it."""
     print(f"Creating plot: {title}")
     
@@ -206,17 +199,20 @@ def create_scatter_plot(data, x_var, y_var, title, filename, figsize=(10, 8)):
     ax.grid(True, alpha=0.3)
     
     # Save plot
+    output_path = os.path.join(base_output_dir, 'diff_scatter_plots')
+    os.makedirs(output_path, exist_ok=True)
+    full_filename = os.path.join(output_path, filename)
     plt.tight_layout()
-    plt.savefig(os.path.join(BASE_OUTPUT_DIR, 'diff_scatter_plots', filename), dpi=300, bbox_inches='tight')
+    plt.savefig(full_filename, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Saved: {os.path.join(BASE_OUTPUT_DIR, 'diff_scatter_plots', filename)}")
+    print(f"Saved: {full_filename}")
 
-def create_all_plots(data):
+def create_all_plots(data, base_output_dir):
     """Create all requested difference scatter plots."""
     print("Creating all difference scatter plots...")
     
     # Create output directory
-    os.makedirs(os.path.join(BASE_OUTPUT_DIR, 'diff_scatter_plots'), exist_ok=True)
+    os.makedirs(os.path.join(base_output_dir, 'diff_scatter_plots'), exist_ok=True)
     
     # Split data by level
     levels = data['level'].unique()
@@ -285,7 +281,8 @@ def create_all_plots(data):
                 config['x_var'], 
                 config['y_var'], 
                 title, 
-                filename
+                filename,
+                base_output_dir
             )
 
 def print_summary_statistics(data):
@@ -306,14 +303,14 @@ def print_summary_statistics(data):
             print(f"  Max:  {data[var].max():.4f}")
             print(f"  N:    {data[var].count()}")
 
-def main():
+def run_analysis(input_dir, base_output_dir):
     """Main execution function."""
     print("="*60)
-    print("DIFFERENCE SCATTER PLOTS ANALYSIS")
+    print(f"DIFFERENCE SCATTER PLOTS ANALYSIS for {input_dir}")
     print("="*60)
     
     # Load data
-    cm_data, tr_data = load_data()
+    cm_data, tr_data = load_data(input_dir)
     if cm_data is None:
         print("Error: Could not load data files")
         return
@@ -346,7 +343,7 @@ def main():
     print_summary_statistics(combined_data)
     
     # Create plots
-    create_all_plots(combined_data)
+    create_all_plots(combined_data, base_output_dir)
     
     print("\n" + "="*60)
     print("ANALYSIS COMPLETE")
@@ -356,13 +353,31 @@ def main():
     num_levels = len(combined_data['level'].unique())
     total_plots = 6 * num_levels
     
-    print(f"Generated {total_plots} difference scatter plots in {BASE_OUTPUT_DIR}/diff_scatter_plots/ directory")
+    print(f"Generated {total_plots} difference scatter plots in {base_output_dir}/diff_scatter_plots/ directory")
     print(f"({6} plot types × {num_levels} data levels)")
     print("Each plot includes:")
     print("- Scatter points showing relationship")
     print("- Linear regression line")
     print("- Horizontal line at y=0 for difference plots")
     print("- Slope, intercept, R², p-value, and sample size in top-left corner")
+
+def main():
+    if 'null' in sys.argv:
+        null_input_root = 'output_terms_null'
+        null_output_root = 'plots_null'
+        
+        if not os.path.isdir(null_input_root):
+            print(f"Error: Null input directory not found at '{null_input_root}'")
+            return
+            
+        for subdir_name in sorted(os.listdir(null_input_root)):
+            input_subdir = os.path.join(null_input_root, subdir_name)
+            if os.path.isdir(input_subdir):
+                output_subdir = os.path.join(null_output_root, subdir_name)
+                run_analysis(input_subdir, output_subdir)
+    else:
+        # Standard execution
+        run_analysis('output_terms', 'plots')
 
 if __name__ == "__main__":
     main() 

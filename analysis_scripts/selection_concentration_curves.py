@@ -99,7 +99,7 @@ def calculate_curve_data(df, selection_col, population_col, analysis_type, use_u
     
     return x_vals, y_vals
 
-def create_county_comparison_plot(df_statewide, config, selection_type):
+def create_county_comparison_plot(df_statewide, config, selection_type, output_dir):
     """
     Generates a 1x3 plot comparing concentration curves for all unique counties found in the data.
     """
@@ -173,13 +173,13 @@ def create_county_comparison_plot(df_statewide, config, selection_type):
 
     # Save plot
     filename = f'multi_county_{level_name.lower()}_{selection_type.lower()}_concentration.pdf'
-    full_path = os.path.join(OUTPUT_DIR, filename)
+    full_path = os.path.join(output_dir, filename)
     plt.tight_layout(rect=[0, 0.03, 0.9, 0.93]) # Adjust layout for external legend
     plt.savefig(full_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"    Multi-county comparison plot saved to {full_path}")
 
-def create_unified_concentration_plot(df, population_col, selection_col, scope_name, selection_type):
+def create_unified_concentration_plot(df, population_col, selection_col, scope_name, selection_type, output_dir):
     """
     Recreates the original plot format where positive, negative, and absolute
     curves are on the same axis, normalized by the total population.
@@ -247,13 +247,13 @@ def create_unified_concentration_plot(df, population_col, selection_col, scope_n
 
     # Save plot
     filename = f'unified_{scope_name.lower().replace(" ", "_")}_{selection_type.lower()}_concentration.pdf'
-    full_path = os.path.join(OUTPUT_DIR, filename)
+    full_path = os.path.join(output_dir, filename)
     plt.savefig(full_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"    Unified plot saved to {full_path}")
 
 
-def create_level_comparison_plot(scope_name, df_tract, df_community, tract_config, community_config, selection_type):
+def create_level_comparison_plot(scope_name, df_tract, df_community, tract_config, community_config, selection_type, output_dir):
     """
     Generates a plot comparing Tract and Community absolute selection concentration on the same axes.
     """
@@ -307,7 +307,7 @@ def create_level_comparison_plot(scope_name, df_tract, df_community, tract_confi
 
     # Save plot
     filename = f'level_comparison_{scope_name.lower().replace(" ", "_")}_{selection_type.lower()}_concentration.pdf'
-    full_path = os.path.join(OUTPUT_DIR, filename)
+    full_path = os.path.join(output_dir, filename)
     print(filename)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(full_path, dpi=300, bbox_inches='tight')
@@ -315,7 +315,7 @@ def create_level_comparison_plot(scope_name, df_tract, df_community, tract_confi
     print(f"    Level comparison plot saved to {full_path}")
 
 
-def create_level_comparison_plot_by_units(scope_name, df_tract, df_community, tract_config, community_config, selection_type):
+def create_level_comparison_plot_by_units(scope_name, df_tract, df_community, tract_config, community_config, selection_type, output_dir):
     """
     Generates a plot comparing Tract and Community concentration on the same axes,
     with the X-axis representing the cumulative share of units, not population.
@@ -376,7 +376,7 @@ def create_level_comparison_plot_by_units(scope_name, df_tract, df_community, tr
 
     # Save plot
     filename = f'level_comparison_by_unit_{scope_name.lower().replace(" ", "_")}_{selection_type.lower()}_concentration.pdf'
-    full_path = os.path.join(OUTPUT_DIR, filename)
+    full_path = os.path.join(output_dir, filename)
     print(filename)
     plt.tight_layout(rect=[0, 0, 1, 0.92]) # Adjust for suptitle
     plt.savefig(full_path, dpi=300, bbox_inches='tight')
@@ -384,13 +384,34 @@ def create_level_comparison_plot_by_units(scope_name, df_tract, df_community, tr
     print(f"    Level comparison plot by unit count saved to {full_path}")
 
 
-# --- MAIN EXECUTION ---
+def run_analysis(input_dir, base_output_dir):
+    """
+    Main function to generate all concentration curve plots for a given dataset.
+    """
+    print(f"\n{'='*60}\nGenerating Selection Concentration Curves for {input_dir}\n{'='*60}")
 
-def main():
-    """
-    Main function to generate all concentration curve plots.
-    """
-    print(f"\n{'='*60}\nGenerating Selection Concentration Curves\n{'='*60}")
+    # --- CONFIGURATION ---
+    LEVELS_TO_ANALYZE = {
+        'tr': {
+            'data_path': os.path.join(input_dir, 'bg_tr_exported_terms.csv'),
+            'pop_col': 'PopInitial_tr',
+            'sel_inc_col': 'Sel_tr_from_bg_inc',
+            'sel_pop_col': 'Sel_tr_from_bg_pop',
+            'level_name': 'Tract',
+            'county_col': 'ParentCounty'
+        },
+        'cm': {
+            'data_path': os.path.join(input_dir, 'bg_cm_exported_terms.csv'),
+            'pop_col': 'PopInitial_cm',
+            'sel_inc_col': 'Sel_cm_from_tr_inc',
+            'sel_pop_col': 'Sel_cm_from_tr_pop',
+            'level_name': 'Community',
+            'county_col': 'ParentCounty'
+        }
+    }
+
+    OUTPUT_DIR = os.path.join(base_output_dir, 'concentration_curves')
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     # --- Load all data first ---
     statewide_data = {}
@@ -438,12 +459,12 @@ def main():
         print(f"\nProcessing {level_name} level...")
         
         # Call comparative plot function
-        create_county_comparison_plot(df_state, config, 'Population')
+        create_county_comparison_plot(df_state, config, 'Population', OUTPUT_DIR)
         
         # Call unified plot functions
-        create_unified_concentration_plot(df_state, config['pop_col'], config['sel_pop_col'], f"Statewide {level_name}", 'Population')
+        create_unified_concentration_plot(df_state, config['pop_col'], config['sel_pop_col'], f"Statewide {level_name}", 'Population', OUTPUT_DIR)
         if not df_cook.empty:
-            create_unified_concentration_plot(df_cook, config['pop_col'], config['sel_pop_col'], f"Cook County {level_name}", 'Population')
+            create_unified_concentration_plot(df_cook, config['pop_col'], config['sel_pop_col'], f"Cook County {level_name}", 'Population', OUTPUT_DIR)
 
     # --- Generate NEW Tract vs. Community comparison plots ---
     print("\n--- Generating Tract vs. Community Plots (per scope) ---")
@@ -454,7 +475,8 @@ def main():
             statewide_data['cm'], 
             LEVELS_TO_ANALYZE['tr'], 
             LEVELS_TO_ANALYZE['cm'], 
-            'Population'
+            'Population',
+            OUTPUT_DIR
         )
     if 'tr' in cook_county_data and 'cm' in cook_county_data:
         create_level_comparison_plot(
@@ -463,7 +485,8 @@ def main():
             cook_county_data['cm'], 
             LEVELS_TO_ANALYZE['tr'], 
             LEVELS_TO_ANALYZE['cm'], 
-            'Population'
+            'Population',
+            OUTPUT_DIR
         )
     
     # --- Generate NEW Tract vs. Community comparison plots BY UNIT COUNT ---
@@ -475,7 +498,8 @@ def main():
             statewide_data['cm'], 
             LEVELS_TO_ANALYZE['tr'], 
             LEVELS_TO_ANALYZE['cm'], 
-            'Population'
+            'Population',
+            OUTPUT_DIR
         )
     if 'tr' in cook_county_data and 'cm' in cook_county_data:
         create_level_comparison_plot_by_units(
@@ -484,8 +508,30 @@ def main():
             cook_county_data['cm'], 
             LEVELS_TO_ANALYZE['tr'], 
             LEVELS_TO_ANALYZE['cm'], 
-            'Population'
+            'Population',
+            OUTPUT_DIR
         )
+
+
+# --- MAIN EXECUTION ---
+
+def main():
+    if 'null' in sys.argv:
+        null_input_root = 'output_terms_null'
+        null_output_root = 'plots_null'
+        
+        if not os.path.isdir(null_input_root):
+            print(f"Error: Null input directory not found at '{null_input_root}'")
+            return
+            
+        for subdir_name in sorted(os.listdir(null_input_root)):
+            input_subdir = os.path.join(null_input_root, subdir_name)
+            if os.path.isdir(input_subdir):
+                output_subdir = os.path.join(null_output_root, subdir_name)
+                run_analysis(input_subdir, output_subdir)
+    else:
+        # Standard execution
+        run_analysis('output_terms', 'plots')
 
 
 if __name__ == "__main__":

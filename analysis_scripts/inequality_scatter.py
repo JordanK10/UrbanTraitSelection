@@ -19,15 +19,6 @@ import sys
 import warnings
 warnings.filterwarnings('ignore')
 
-# Check for 'null' argument to switch directories
-if 'null' in sys.argv:
-    INPUT_DIR = 'output_terms_null'
-    BASE_OUTPUT_DIR = 'plots_null'
-else:
-    INPUT_DIR = 'output_terms'
-    BASE_OUTPUT_DIR = 'plots'
-
-
 # Custom colors
 custom_purple = '#633673'
 custom_orange = '#E77429'
@@ -71,7 +62,7 @@ def create_custom_colormap():
     cmap = mcolors.LinearSegmentedColormap.from_list('custom', colors, N=n_bins)
     return cmap
 
-def create_scatter_plot(x_data, y_data, color_data, x_label, y_label, color_label, title, filename, size_data=None, label=None):
+def create_scatter_plot(x_data, y_data, color_data, x_label, y_label, color_label, title, filename, base_output_dir, size_data=None, label=None):
     """Create a scatter plot with specified data and labels, colored by color_data"""
     # Remove NaN, inf, and exactly zero values from x and y data
     valid_mask = (np.isfinite(x_data) & np.isfinite(y_data) & 
@@ -186,28 +177,27 @@ def create_scatter_plot(x_data, y_data, color_data, x_label, y_label, color_labe
     
     # Save plot
     plt.tight_layout()
-    os.makedirs(os.path.join(BASE_OUTPUT_DIR, "inequality_scatter_plots"), exist_ok=True)
-    full_filename = os.path.join(os.path.join(BASE_OUTPUT_DIR, "inequality_scatter_plots"), filename)
+    os.makedirs(os.path.join(base_output_dir, "inequality_scatter_plots"), exist_ok=True)
+    full_filename = os.path.join(os.path.join(base_output_dir, "inequality_scatter_plots"), filename)
     plt.savefig(full_filename, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     print(f"Saved: {full_filename}")
 
-def save_plot(fig, filename):
+def save_plot(fig, filename, base_output_dir):
     """Saves a plot to a file, creating directories if necessary."""
-    output_dir = os.path.join(BASE_OUTPUT_DIR, "inequality_scatter_plots")
+    output_dir = os.path.join(base_output_dir, "inequality_scatter_plots")
     os.makedirs(output_dir, exist_ok=True)
     full_filename = os.path.join(output_dir, filename)
     fig.savefig(full_filename, dpi=300, bbox_inches='tight', facecolor='white')
     print(f"Saved: {full_filename}")
 
-# --- Main execution ---
-if __name__ == "__main__":
+def run_analysis(input_dir, base_output_dir):
     # Load community data
-    cm_data = load_data(os.path.join(INPUT_DIR, "bg_cm_exported_terms.csv"))
+    cm_data = load_data(os.path.join(input_dir, "bg_cm_exported_terms.csv"))
     
     if cm_data is None:
-        print("Error: Could not load community data file.")
-        exit(1)
+        print(f"Error: Could not load community data file from {input_dir}.")
+        return
     
     # Extract relative empirical growth rate
     if 'RelAvgG_emp_cm' in cm_data.columns:
@@ -218,17 +208,17 @@ if __name__ == "__main__":
     else:
         print("Error: 'RelAvgG_emp_cm' column not found in community data.")
         print("Available columns:", list(cm_data.columns))
-        exit(1)
+        return
     
     # Extract population growth rate for coloring
     if 'PopG_cm' in cm_data.columns:
         pop_growth = cm_data['LogAvgIncInitial_cm']
-        pop_growth = pop_growth-pop_growth.median()
+        pop_growth = pop_growth - pop_growth.median()
         print(f"Successfully extracted population growth rate: {len(pop_growth)} values")
     else:
         print("Error: 'PopG_cm' column not found in community data.")
         print("Available columns:", list(cm_data.columns))
-        exit(1)
+        return
     
     # Compute cumulative income PNC_st
     print("\nComputing cumulative income PNC_st...")
@@ -256,7 +246,8 @@ if __name__ == "__main__":
         color_label="Relative Initial Income",
         title="Relative Empirical Growth Rate vs Income PNC_st",
         filename="rel_growth_vs_income_pnc.pdf",
-        label = cm_label
+        base_output_dir=base_output_dir,
+        label=cm_label
     )
     
     # Plot 2: Relative Empirical Growth Rate vs Population PNC_st (axes reversed)
@@ -270,12 +261,35 @@ if __name__ == "__main__":
         color_label="Relative Initial Income",
         title="Relative Empirical Growth Rate vs Population PNC_st",
         filename="rel_growth_vs_population_pnc.pdf",
-        label = cm_label
+        base_output_dir=base_output_dir,
+        label=cm_label
     )
     
     print("\n" + "="*60)
-    print("INEQUALITY SCATTER ANALYSIS COMPLETE")
+    print(f"INEQUALITY SCATTER ANALYSIS COMPLETE FOR {input_dir}")
     print("="*60)
     print("Generated plots:")
-    print(f"1. {os.path.join(BASE_OUTPUT_DIR, 'inequality_scatter_plots', 'rel_growth_vs_income_pnc.pdf')}")
-    print(f"2. {os.path.join(BASE_OUTPUT_DIR, 'inequality_scatter_plots', 'rel_growth_vs_population_pnc.pdf')}") 
+    print(f"1. {os.path.join(base_output_dir, 'inequality_scatter_plots', 'rel_growth_vs_income_pnc.pdf')}")
+    print(f"2. {os.path.join(base_output_dir, 'inequality_scatter_plots', 'rel_growth_vs_population_pnc.pdf')}")
+
+# --- Main execution ---
+def main():
+    if 'null' in sys.argv:
+        null_input_root = 'output_terms_null'
+        null_output_root = 'plots_null'
+        
+        if not os.path.isdir(null_input_root):
+            print(f"Error: Null input directory not found at '{null_input_root}'")
+            return
+            
+        for subdir_name in sorted(os.listdir(null_input_root)):
+            input_subdir = os.path.join(null_input_root, subdir_name)
+            if os.path.isdir(input_subdir):
+                output_subdir = os.path.join(null_output_root, subdir_name)
+                print(f"\n--- Processing dataset: {subdir_name} ---")
+                run_analysis(input_subdir, output_subdir)
+    else:
+        run_analysis('output_terms', 'plots')
+
+if __name__ == "__main__":
+    main() 

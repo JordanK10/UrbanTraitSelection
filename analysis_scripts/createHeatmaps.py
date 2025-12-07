@@ -8,19 +8,9 @@ import os
 import re
 import sys
 
-# Check for 'null' argument to switch directories
-if 'null' in sys.argv:
-    INPUT_DIR = 'output_terms_null'
-    BASE_OUTPUT_DIR = 'plots_null'
-else:
-    INPUT_DIR = 'output_terms'
-    BASE_OUTPUT_DIR = 'plots'
-
 # --- Configuration ---
 HIERARCHY_LEVELS = ['bg', 'tr', 'cm', 'ct', 'st']
 BASE_ANALYSIS_LEVEL = 'bg'  # We'll focus on the 'bg' based decomposition
-PICKLE_FILE_PATH = os.path.join(INPUT_DIR, "all_decomposition_results.pkl")
-OUTPUT_DIR = os.path.join(BASE_OUTPUT_DIR, "heatmaps_local_dominance")
 TARGET_LEVELS_FOR_PLOTTING = ['cm', 'ct'] # Let's create heatmaps for Community and County levels
 CUSTOM_PURPLE = '#633673'
 CUSTOM_ORANGE = '#E77429'
@@ -122,32 +112,33 @@ def prepare_ldr_heatmap_data(df_for_level, path_suffix):
 
     return df_ldr
 
-def prepare_pnc_heatmap_data(df_for_level, target_level, path_suffix, hierarchy_levels_list):
+def prepare_pnc_heatmap_data(df_for_level, target_level, path_suffix, hierarchy_levels_list, self_normalize=False):
     """
-    Prepares a DataFrame with PNC values relative to the immediate parent for plotting.
+    Prepares a DataFrame with PNC values for plotting.
+    If self_normalize is True, it uses PNC values relative to the unit's own total growth.
+    Otherwise, it defaults to using values relative to the immediate parent.
     """
     if df_for_level.empty:
         return None
 
-    # 1. Determine the parent level to normalize against.
-    try:
-        current_level_idx = hierarchy_levels_list.index(target_level)
-        if current_level_idx == len(hierarchy_levels_list) - 1:
-            # This is the highest level (e.g., 'st'), it has no parent.
-            # We'll use PNC relative to itself.
-            parent_level_for_pnc = target_level
-        else:
-            parent_level_for_pnc = hierarchy_levels_list[current_level_idx + 1] # Immediate parent
-    except ValueError:
-        print(f"  Error (prepare_pnc_heatmap_data): Target level '{target_level}' not in hierarchy.")
-        return None
+    # 1. Determine the level to normalize against.
+    if self_normalize:
+        pnc_suffix_for_filter = "_PNC"
+        print(f"  Note (prepare_pnc_heatmap_data): Using self-normalized PNC values for '{target_level}'.")
+    else:
+        try:
+            current_level_idx = hierarchy_levels_list.index(target_level)
+            if current_level_idx == len(hierarchy_levels_list) - 1:
+                parent_level_for_pnc = target_level
+            else:
+                parent_level_for_pnc = hierarchy_levels_list[current_level_idx + 1]
+        except ValueError:
+            print(f"  Error (prepare_pnc_heatmap_data): Target level '{target_level}' not in hierarchy.")
+            return None
+        
+        pnc_suffix_for_filter = f"_PNC_{parent_level_for_pnc}" if parent_level_for_pnc != target_level else "_PNC"
     
-    # Suffix for the PNC columns to select. E.g., _PNC_ct for a 'cm' level plot.
-    # If the target is its own parent (e.g., highest level), the suffix is just _PNC.
-    pnc_suffix_for_filter = f"_PNC_{parent_level_for_pnc}" if parent_level_for_pnc != target_level else "_PNC"
-    
-    # Regex to find all relevant PNC columns for the specified path and parent normalization
-    # e.g., ^(Sel|Transmitted).+_pop_PNC_ct$
+    # Regex to find all relevant PNC columns for the specified path and normalization level
     pnc_cols_regex = f"^(Sel|Transmitted).+({path_suffix}){pnc_suffix_for_filter}$"
     
     pnc_cols_to_use = [col for col in df_for_level.columns if re.match(pnc_cols_regex, col)]
@@ -425,11 +416,14 @@ def create_combined_summary_plot(df, level, output_dir, file_name, plot_title):
     print(f"  Generating combined summary plot for {plot_title} (saving to {output_dir})...")
     os.makedirs(output_dir, exist_ok=True)
 
+    # Determine if this is a special case for self-normalization (e.g., Cook County summary)
+    self_normalize_pnc = 'Cook County' in plot_title
+
     # 1. Prepare the four data series
     ldr_pop = prepare_ldr_heatmap_data(df, '_pop')
     ldr_inc = prepare_ldr_heatmap_data(df, '_inc')
-    pnc_pop = prepare_pnc_heatmap_data(df, level, '_pop', HIERARCHY_LEVELS)
-    pnc_inc = prepare_pnc_heatmap_data(df, level, '_inc', HIERARCHY_LEVELS)
+    pnc_pop = prepare_pnc_heatmap_data(df, level, '_pop', HIERARCHY_LEVELS, self_normalize=self_normalize_pnc)
+    pnc_inc = prepare_pnc_heatmap_data(df, level, '_inc', HIERARCHY_LEVELS, self_normalize=self_normalize_pnc)
 
     # Extract the first (and only) row of data for the single entity
     # and handle cases where data might be missing.
@@ -579,10 +573,17 @@ def create_ldr_variation_summary_plot(decomposition_results, output_dir, file_na
     
     print(f"  Successfully saved LDR variation summary to {output_path}")
 
-def main():
+def run_analysis(input_dir, base_output_dir):
     """
     Main function to orchestrate loading data and generating heatmaps based on different rankings.
     """
+    PICKLE_FILE_PATH = os.path.join(input_dir, "all_decomposition_results.pkl")
+    OUTPUT_DIR = os.path.join(base_output_dir, "heatmaps_local_dominance")
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    
+    print(f"\n--- Running analysis for input: {input_dir} ---")
+    print(f"--- Saving plots to: {base_output_dir} ---")
+
     print("--- Starting Plot Generation ---")
     
     decomposition_results = load_pickle_data(PICKLE_FILE_PATH)
@@ -592,220 +593,220 @@ def main():
     print("\n--- Generating Local Dominance Heatmaps ---")
     dominance_target_levels = [lvl for lvl in HIERARCHY_LEVELS if lvl != BASE_ANALYSIS_LEVEL]
 
-    for level in dominance_target_levels:
-        if level not in TARGET_LEVELS_FOR_PLOTTING:
-            continue
-        try:
-            df_level_full = decomposition_results[BASE_ANALYSIS_LEVEL][level]
-        except KeyError:
-            print(f"Could not find data for base '{BASE_ANALYSIS_LEVEL}' and level '{level}'. Skipping.")
-            continue
+    # for level in dominance_target_levels:
+    #     if level not in TARGET_LEVELS_FOR_PLOTTING:
+    #         continue
+    #     try:
+    #         df_level_full = decomposition_results[BASE_ANALYSIS_LEVEL][level]
+    #     except KeyError:
+    #         print(f"Could not find data for base '{BASE_ANALYSIS_LEVEL}' and level '{level}'. Skipping.")
+    #         continue
         
-        parent_col = CHILD_TO_PARENT_ID_COL_MAP.get(level)
-        if not (parent_col and parent_col in df_level_full.columns):
-            print(f"Parent column '{parent_col}' not found for level '{level}'. Cannot create parent-specific plots.")
-            continue
+    #     parent_col = CHILD_TO_PARENT_ID_COL_MAP.get(level)
+    #     if not (parent_col and parent_col in df_level_full.columns):
+    #         print(f"Parent column '{parent_col}' not found for level '{level}'. Cannot create parent-specific plots.")
+    #         continue
 
-        parent_units = df_level_full[parent_col].dropna().unique()
-        parent_level_name = parent_col.replace("Parent", "").lower()
-        print(f"\n--- Processing level '{level}', generating reports for {len(parent_units)} {parent_level_name}s ---")
+    #     parent_units = df_level_full[parent_col].dropna().unique()
+    #     parent_level_name = parent_col.replace("Parent", "").lower()
+    #     print(f"\n--- Processing level '{level}', generating reports for {len(parent_units)} {parent_level_name}s ---")
 
-        for parent_id in parent_units:
-            safe_parent_id_str = str(parent_id).split('.')[0]
-            if level == 'ct':
-                try:
-                    state_fips = df_level_full[df_level_full[parent_col] == parent_id]['ParentState'].iloc[0]
-                    safe_parent_id_str = f"{state_fips}{safe_parent_id_str}"
-                except (IndexError, KeyError):
-                     pass
+    #     for parent_id in parent_units:
+    #         safe_parent_id_str = str(parent_id).split('.')[0]
+    #         if level == 'ct':
+    #             try:
+    #                 state_fips = df_level_full[df_level_full[parent_col] == parent_id]['ParentState'].iloc[0]
+    #                 safe_parent_id_str = f"{state_fips}{safe_parent_id_str}"
+    #             except (IndexError, KeyError):
+    #                  pass
             
-            county_report_dir = os.path.join(OUTPUT_DIR, level, f"{parent_level_name}_{safe_parent_id_str}")
-            os.makedirs(county_report_dir, exist_ok=True)
-            print(f"  Creating report directory: {county_report_dir}")
+    #         county_report_dir = os.path.join(OUTPUT_DIR, level, f"{parent_level_name}_{safe_parent_id_str}")
+    #         os.makedirs(county_report_dir, exist_ok=True)
+    #         print(f"  Creating report directory: {county_report_dir}")
 
-            df_filtered_for_county = df_level_full[df_level_full[parent_col] == parent_id].copy()
-            if df_filtered_for_county.empty:
-                continue
+    #         df_filtered_for_county = df_level_full[df_level_full[parent_col] == parent_id].copy()
+    #         if df_filtered_for_county.empty:
+    #             continue
 
-            # --- NEW: Generate Histograms for specific metrics in this county ---
-            hist_dir = os.path.join(county_report_dir, 'histograms')
-            os.makedirs(hist_dir, exist_ok=True)
+    #         # --- NEW: Generate Histograms for specific metrics in this county ---
+    #         hist_dir = os.path.join(county_report_dir, 'histograms')
+    #         os.makedirs(hist_dir, exist_ok=True)
             
-            try:
-                current_level_idx = HIERARCHY_LEVELS.index(level)
-                parent_level_short_name = HIERARCHY_LEVELS[current_level_idx + 1]
-            except (ValueError, IndexError):
-                print(f"    Could not determine parent level for '{level}', skipping histograms.")
-                continue
+    #         try:
+    #             current_level_idx = HIERARCHY_LEVELS.index(level)
+    #             parent_level_short_name = HIERARCHY_LEVELS[current_level_idx + 1]
+    #         except (ValueError, IndexError):
+    #             print(f"    Could not determine parent level for '{level}', skipping histograms.")
+    #             continue
 
-            pnc_suffix = f'_PNC_{parent_level_short_name}'
-            ldr_suffix = '_LDR'
+    #         pnc_suffix = f'_PNC_{parent_level_short_name}'
+    #         ldr_suffix = '_LDR'
 
-            cols_to_histogram = []
+    #         cols_to_histogram = []
             
-            for col in df_filtered_for_county.columns:
-                is_sel_or_trans = col.startswith(('Sel_', 'Transmitted_'))
+    #         for col in df_filtered_for_county.columns:
+    #             is_sel_or_trans = col.startswith(('Sel_', 'Transmitted_'))
                 
-                # Check if the term is *for* the current level's units.
-                # e.g., Sel_cm_... or Transmitted_..._to_cm
-                is_for_level = f'_{level}_from_' in col or f'_to_{level}' in col
+    #             # Check if the term is *for* the current level's units.
+    #             # e.g., Sel_cm_... or Transmitted_..._to_cm
+    #             is_for_level = f'_{level}_from_' in col or f'_to_{level}' in col
 
-                if is_sel_or_trans and is_for_level:
-                    # Check if it is a raw term, an LDR term, or a PNC term relative to immediate parent
-                    is_raw_value = '_LDR' not in col and '_PNC' not in col
-                    is_ldr_value = col.endswith(ldr_suffix)
-                    is_pnc_value = col.endswith(pnc_suffix)
+    #             if is_sel_or_trans and is_for_level:
+    #                 # Check if it is a raw term, an LDR term, or a PNC term relative to immediate parent
+    #                 is_raw_value = '_LDR' not in col and '_PNC' not in col
+    #                 is_ldr_value = col.endswith(ldr_suffix)
+    #                 is_pnc_value = col.endswith(pnc_suffix)
                     
-                    if is_raw_value or is_ldr_value or is_pnc_value:
-                        cols_to_histogram.append(col)
+    #                 if is_raw_value or is_ldr_value or is_pnc_value:
+    #                     cols_to_histogram.append(col)
             
-            cols_to_histogram = sorted(list(set(cols_to_histogram)))
+    #         cols_to_histogram = sorted(list(set(cols_to_histogram)))
 
-            print(f"    Generating {len(cols_to_histogram)} focused histograms for {parent_level_name.title()} {safe_parent_id_str}...")
-            # for col in cols_to_histogram:
-            #     clean_name = clean_column_names(col)
-            #     hist_title = f'Distribution of {clean_name}\n(Units in {parent_level_name.title()} {safe_parent_id_str})'
-            #     hist_filename = os.path.join(hist_dir, f'hist_{col}.pdf')
-            #     plot_histogram(df_filtered_for_county[col], hist_title, clean_name, hist_filename)
-            # --- END NEW ---
+    #         print(f"    Generating {len(cols_to_histogram)} focused histograms for {parent_level_name.title()} {safe_parent_id_str}...")
+    #         # for col in cols_to_histogram:
+    #         #     clean_name = clean_column_names(col)
+    #         #     hist_title = f'Distribution of {clean_name}\n(Units in {parent_level_name.title()} {safe_parent_id_str})'
+    #         #     hist_filename = os.path.join(hist_dir, f'hist_{col}.pdf')
+    #         #     plot_histogram(df_filtered_for_county[col], hist_title, clean_name, hist_filename)
+    #         # --- END NEW ---
 
-            for path in ['_pop', '_inc']:
-                path_name = "Population" if path == '_pop' else "Income"
+    #         for path in ['_pop', '_inc']:
+    #             path_name = "Population" if path == '_pop' else "Income"
 
-                # Define the criteria for ranking units for different heatmaps
-                ranking_criteria = {
-                    'pop': f'PopInitial_{level}',
-                    'pop_popwth': f'PopG_{level}',
-                    'inc_popwth': f'AvgG_emp_{level}'
-                }
+    #             # Define the criteria for ranking units for different heatmaps
+    #             ranking_criteria = {
+    #                 'pop': f'PopInitial_{level}',
+    #                 'pop_popwth': f'PopG_{level}',
+    #                 'inc_popwth': f'AvgG_emp_{level}'
+    #             }
                 
-                # Dynamically find selection and growth components to rank by
-                child_level = HIERARCHY_LEVELS[HIERARCHY_LEVELS.index(level) - 1]
-                own_sel_col = f'Sel_{level}_from_{child_level}{path}'
-                if own_sel_col in df_filtered_for_county.columns:
-                    ranking_criteria[f'sel_{level}'] = own_sel_col
+    #             # Dynamically find selection and growth components to rank by
+    #             child_level = HIERARCHY_LEVELS[HIERARCHY_LEVELS.index(level) - 1]
+    #             own_sel_col = f'Sel_{level}_from_{child_level}{path}'
+    #             if own_sel_col in df_filtered_for_county.columns:
+    #                 ranking_criteria[f'sel_{level}'] = own_sel_col
                 
-                for col in df_filtered_for_county.columns:
-                    if col.startswith('Transmitted_Sel_') and col.endswith(f'_to_{level}{path}'):
-                        if not col.startswith(f'Transmitted_Sel_{BASE_ANALYSIS_LEVEL}_to_'):
-                            short_name = re.search(r'Transmitted_Sel_(\w+)_to_', col).group(1)
-                            ranking_criteria[f'trans_sel_{short_name}'] = col
+    #             for col in df_filtered_for_county.columns:
+    #                 if col.startswith('Transmitted_Sel_') and col.endswith(f'_to_{level}{path}'):
+    #                     if not col.startswith(f'Transmitted_Sel_{BASE_ANALYSIS_LEVEL}_to_'):
+    #                         short_name = re.search(r'Transmitted_Sel_(\w+)_to_', col).group(1)
+    #                         ranking_criteria[f'trans_sel_{short_name}'] = col
 
-                base_popwth_col = f'Transmitted_AvgG_{BASE_ANALYSIS_LEVEL}_to_{level}{path}'
-                if base_popwth_col in df_filtered_for_county.columns:
-                    ranking_criteria[f'trans_g_{BASE_ANALYSIS_LEVEL}'] = base_popwth_col
+    #             base_popwth_col = f'Transmitted_AvgG_{BASE_ANALYSIS_LEVEL}_to_{level}{path}'
+    #             if base_popwth_col in df_filtered_for_county.columns:
+    #                 ranking_criteria[f'trans_g_{BASE_ANALYSIS_LEVEL}'] = base_popwth_col
                 
-                # Loop through the criteria and generate a heatmap for each one
-                for rank_key, rank_col_name in ranking_criteria.items():
-                    if rank_col_name not in df_filtered_for_county.columns:
-                        continue
+    #             # Loop through the criteria and generate a heatmap for each one
+    #             for rank_key, rank_col_name in ranking_criteria.items():
+    #                 if rank_col_name not in df_filtered_for_county.columns:
+    #                     continue
                     
-                    df_ranked = df_filtered_for_county.sort_values(by=rank_col_name, ascending=False)
-                    df_top_10 = df_ranked.head(10)
+    #                 df_ranked = df_filtered_for_county.sort_values(by=rank_col_name, ascending=False)
+    #                 df_top_10 = df_ranked.head(10)
 
-                    # --- Plot 1: Local Dominance (Using LDR Columns) ---
-                    ldr_heatmap_data = prepare_ldr_heatmap_data(df_top_10, path)
-                    if ldr_heatmap_data is not None and not ldr_heatmap_data.empty:
-                        title = f'Local Dominance (LDR) in {parent_level_name.title()} {safe_parent_id_str}\n(Top 10 by {rank_key.replace("_", " ").title()}, {path_name} Path)'
-                        output_file = os.path.join(county_report_dir, f'ldr_heatmap_{path_name.lower()}_ranked_by_{rank_key}.pdf')
-                        plot_heatmap(ldr_heatmap_data, title, output_file)
+    #                 # --- Plot 1: Local Dominance (Using LDR Columns) ---
+    #                 ldr_heatmap_data = prepare_ldr_heatmap_data(df_top_10, path)
+    #                 if ldr_heatmap_data is not None and not ldr_heatmap_data.empty:
+    #                     title = f'Local Dominance (LDR) in {parent_level_name.title()} {safe_parent_id_str}\n(Top 10 by {rank_key.replace("_", " ").title()}, {path_name} Path)'
+    #                     output_file = os.path.join(county_report_dir, f'ldr_heatmap_{path_name.lower()}_ranked_by_{rank_key}.pdf')
+    #                     plot_heatmap(ldr_heatmap_data, title, output_file)
 
-                    # --- Plot 2: Parent-Normalized Contribution (PNC) ---
-                    pnc_heatmap_data = prepare_pnc_heatmap_data(df_top_10, level, path, HIERARCHY_LEVELS)
-                    if pnc_heatmap_data is not None and not pnc_heatmap_data.empty:
-                        title = f'Parent-Normalized Contribution in {parent_level_name.title()} {safe_parent_id_str}\n(Top 10 by {rank_key.replace("_", " ").title()}, {path_name} Path)'
-                        output_file = os.path.join(county_report_dir, f'pnc_heatmap_{path_name.lower()}_ranked_by_{rank_key}.pdf')
-                        plot_pnc_heatmap(pnc_heatmap_data, title, output_file)
+    #                 # --- Plot 2: Parent-Normalized Contribution (PNC) ---
+    #                 pnc_heatmap_data = prepare_pnc_heatmap_data(df_top_10, level, path, HIERARCHY_LEVELS)
+    #                 if pnc_heatmap_data is not None and not pnc_heatmap_data.empty:
+    #                     title = f'Parent-Normalized Contribution in {parent_level_name.title()} {safe_parent_id_str}\n(Top 10 by {rank_key.replace("_", " ").title()}, {path_name} Path)'
+    #                     output_file = os.path.join(county_report_dir, f'pnc_heatmap_{path_name.lower()}_ranked_by_{rank_key}.pdf')
+    #                     plot_pnc_heatmap(pnc_heatmap_data, title, output_file)
 
-    # --- NEW: Create the "Ultimate Plot" for selected Chicago Communities ---
-    print("\n--- Generating Ultimate Plot for Selected Chicago Communities ---")
+    # # --- NEW: Create the "Ultimate Plot" for selected Chicago Communities ---
+    # print("\n--- Generating Ultimate Plot for Selected Chicago Communities ---")
 
-    target_communities = [
-        'NEAR NORTH SIDE', 'NEAR SOUTH SIDE', 'NEAR WEST SIDE', 'LOOP', 
-        'LOGAN SQUARE', 'WEST TOWN', 'AUSTIN', 'AVONDALE', 'HYDE PARK', 
-        'KENWOOD', 'WOODLAWN', 'ENGLEWOOD', 'GREATER GRAND CROSSING'
-    ]
+    # target_communities = [
+    #     'NEAR NORTH SIDE', 'NEAR SOUTH SIDE', 'NEAR WEST SIDE', 'LOOP', 
+    #     'LOGAN SQUARE', 'WEST TOWN', 'AUSTIN', 'AVONDALE', 'HYDE PARK', 
+    #     'KENWOOD', 'WOODLAWN', 'ENGLEWOOD', 'GREATER GRAND CROSSING'
+    # ]
 
-    try:
-        df_cm_full = decomposition_results[BASE_ANALYSIS_LEVEL]['cm']
+    # try:
+    #     df_cm_full = decomposition_results[BASE_ANALYSIS_LEVEL]['cm']
         
-        # Filter for the specific communities
-        df_selected_communities = df_cm_full[df_cm_full['UnitName'].isin(target_communities)].copy()
+    #     # Filter for the specific communities
+    #     df_selected_communities = df_cm_full[df_cm_full['UnitName'].isin(target_communities)].copy()
         
-        if df_selected_communities.empty:
-            print("  Warning: None of the target communities were found in the dataset.")
-        else:
-            print(f"  Found {len(df_selected_communities)} of the {len(target_communities)} target communities.")
+    #     if df_selected_communities.empty:
+    #         print("  Warning: None of the target communities were found in the dataset.")
+    #     else:
+    #         print(f"  Found {len(df_selected_communities)} of the {len(target_communities)} target communities.")
             
-            # --- NEW: Generate Global Histograms for CM level ---
-            global_hist_dir = os.path.join(OUTPUT_DIR, 'cm', 'global_histograms')
-            os.makedirs(global_hist_dir, exist_ok=True)
-            print(f"\n  Generating global histograms for key metrics at the Community level (saving to {global_hist_dir})...")
+    #         # --- NEW: Generate Global Histograms for CM level ---
+    #         global_hist_dir = os.path.join(OUTPUT_DIR, 'cm', 'global_histograms')
+    #         os.makedirs(global_hist_dir, exist_ok=True)
+    #         print(f"\n  Generating global histograms for key metrics at the Community level (saving to {global_hist_dir})...")
             
-            level = 'cm'
-            parent_level_short_name = 'ct' # Parent of cm is ct
-            pnc_suffix = f'_PNC_{parent_level_short_name}'
-            ldr_suffix = '_LDR'
+    #         level = 'cm'
+    #         parent_level_short_name = 'ct' # Parent of cm is ct
+    #         pnc_suffix = f'_PNC_{parent_level_short_name}'
+    #         ldr_suffix = '_LDR'
             
-            cols_to_histogram = []
+    #         cols_to_histogram = []
             
-            for col in df_cm_full.columns:
-                is_sel_or_trans = col.startswith(('Sel_', 'Transmitted_'))
-                is_for_level = f'_{level}_from_' in col or f'_to_{level}' in col
+    #         for col in df_cm_full.columns:
+    #             is_sel_or_trans = col.startswith(('Sel_', 'Transmitted_'))
+    #             is_for_level = f'_{level}_from_' in col or f'_to_{level}' in col
 
-                if is_sel_or_trans and is_for_level:
-                    is_raw_value = '_LDR' not in col and '_PNC' not in col
-                    is_ldr_value = col.endswith(ldr_suffix)
-                    is_pnc_value = col.endswith(pnc_suffix)
+    #             if is_sel_or_trans and is_for_level:
+    #                 is_raw_value = '_LDR' not in col and '_PNC' not in col
+    #                 is_ldr_value = col.endswith(ldr_suffix)
+    #                 is_pnc_value = col.endswith(pnc_suffix)
                     
-                    if is_raw_value or is_ldr_value or is_pnc_value:
-                        cols_to_histogram.append(col)
+    #                 if is_raw_value or is_ldr_value or is_pnc_value:
+    #                     cols_to_histogram.append(col)
 
-            cols_to_histogram = sorted(list(set(cols_to_histogram)))
+    #         cols_to_histogram = sorted(list(set(cols_to_histogram)))
             
-            for col in cols_to_histogram:
-                clean_name = clean_column_names(col)
-                hist_title = f'Global Distribution of {clean_name}\n(All Communities)'
-                hist_filename = os.path.join(global_hist_dir, f'hist_global_{col}.pdf')
-                plot_histogram(df_cm_full[col], hist_title, clean_name, hist_filename)
-            # --- END NEW ---
+    #         for col in cols_to_histogram:
+    #             clean_name = clean_column_names(col)
+    #             hist_title = f'Global Distribution of {clean_name}\n(All Communities)'
+    #             hist_filename = os.path.join(global_hist_dir, f'hist_global_{col}.pdf')
+    #             plot_histogram(df_cm_full[col], hist_title, clean_name, hist_filename)
+    #         # --- END NEW ---
 
-            # Preserve the user-defined order for the plot
-            df_selected_communities['UnitName'] = pd.Categorical(
-                df_selected_communities['UnitName'], 
-                categories=target_communities, 
-                ordered=True
-            )
-            df_selected_communities.sort_values('UnitName', inplace=True)
+    #         # Preserve the user-defined order for the plot
+    #         df_selected_communities['UnitName'] = pd.Categorical(
+    #             df_selected_communities['UnitName'], 
+    #             categories=target_communities, 
+    #             ordered=True
+    #         )
+    #         df_selected_communities.sort_values('UnitName', inplace=True)
 
-            for path in ['_pop', '_inc']:
-                path_name = "Population" if path == '_pop' else "Income"
+    #         for path in ['_pop', '_inc']:
+    #             path_name = "Population" if path == '_pop' else "Income"
                 
-                # --- Dominance Plot (using LDR columns) ---
-                ldr_data_ultimate = prepare_ldr_heatmap_data(
-                    df_selected_communities, 
-                    path
-                )
-                if ldr_data_ultimate is not None and not ldr_data_ultimate.empty:
-                    title = f'Local Dominance (LDR) for Selected Chicago Communities\n({path_name} Path)'
-                    output_file = os.path.join(OUTPUT_DIR, f'ultimate_plot_ldr_chicago_{path_name.lower()}.pdf')
-                    plot_heatmap(ldr_data_ultimate, title, output_file)
+    #             # --- Dominance Plot (using LDR columns) ---
+    #             ldr_data_ultimate = prepare_ldr_heatmap_data(
+    #                 df_selected_communities, 
+    #                 path
+    #             )
+    #             if ldr_data_ultimate is not None and not ldr_data_ultimate.empty:
+    #                 title = f'Local Dominance (LDR) for Selected Chicago Communities\n({path_name} Path)'
+    #                 output_file = os.path.join(OUTPUT_DIR, f'ultimate_plot_ldr_chicago_{path_name.lower()}.pdf')
+    #                 plot_heatmap(ldr_data_ultimate, title, output_file)
 
-                # --- Raw Values Plot is now PNC Plot ---
-                pnc_data_ultimate = prepare_pnc_heatmap_data(
-                    df_selected_communities,
-                    'cm',
-                    path,
-                    HIERARCHY_LEVELS
-                )
-                if pnc_data_ultimate is not None and not pnc_data_ultimate.empty:
-                    title = f'Parent-Normalized Contribution for Selected Chicago Communities\n({path_name} Path)'
-                    output_file = os.path.join(OUTPUT_DIR, f'ultimate_plot_pnc_chicago_{path_name.lower()}.pdf')
-                    plot_pnc_heatmap(pnc_data_ultimate, title, output_file)
+    #             # --- Raw Values Plot is now PNC Plot ---
+    #             pnc_data_ultimate = prepare_pnc_heatmap_data(
+    #                 df_selected_communities,
+    #                 'cm',
+    #                 path,
+    #                 HIERARCHY_LEVELS
+    #             )
+    #             if pnc_data_ultimate is not None and not pnc_data_ultimate.empty:
+    #                 title = f'Parent-Normalized Contribution for Selected Chicago Communities\n({path_name} Path)'
+    #                 output_file = os.path.join(OUTPUT_DIR, f'ultimate_plot_pnc_chicago_{path_name.lower()}.pdf')
+    #                 plot_pnc_heatmap(pnc_data_ultimate, title, output_file)
 
-    except (KeyError, TypeError):
-        print("  Could not generate ultimate plot: Data for base 'bg' and level 'cm' not found.")
-    # --- END of new section ---
+    # except (KeyError, TypeError):
+    #     print("  Could not generate ultimate plot: Data for base 'bg' and level 'cm' not found.")
+    # # --- END of new section ---
 
     # --- State-level Summary Plots ---
     print("\n--- Generating State-level Summary Reports ---")
@@ -871,6 +872,28 @@ def main():
     # --- END NEW ---
 
     print("\n--- Plot Generation Complete ---")
+
+
+def main():
+    """
+    Orchestrates running the analysis for single or multiple (null) datasets.
+    """
+    if 'null' in sys.argv:
+        null_input_root = 'output_terms_null'
+        null_output_root = 'plots_null'
+        
+        if not os.path.isdir(null_input_root):
+            print(f"Error: Null input directory not found at '{null_input_root}'")
+            return
+            
+        for subdir_name in sorted(os.listdir(null_input_root)):
+            input_subdir = os.path.join(null_input_root, subdir_name)
+            if os.path.isdir(input_subdir):
+                output_subdir = os.path.join(null_output_root, subdir_name)
+                run_analysis(input_subdir, output_subdir)
+    else:
+        # Standard execution
+        run_analysis('output_terms', 'plots')
 
 
 if __name__ == "__main__":
