@@ -11,7 +11,12 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 TARGET_N = 5  # Example: 9-year period for analysis
 INITIAL_YEAR = 14 # From procPrice.py, typical FirstYear for N=9 period
 HIERARCHY_LEVELS = ['bg', 'tr', 'cm', 'ct', 'st'] # Order: Lowest to highest
-ANALYSIS_PRICE_FILEPATH = "results/analysis_Price2.pkl"
+#ANALYSIS_PRICE_FILEPATH = "results/analysis_Price2.pkl"
+#ANALYSIS_PRICE_FILEPATH = "results/analysis_Price_null.pkl"
+#ANALYSIS_PRICE_FILEPATH = "results/analysis_ Price_datapop.pkl"
+#ANALYSIS_PRICE_FILEPATH = "results/analysis_Price_uniformpop.pkl"
+#ANALYSIS_PRICE_FILEPATH = "results/analysis_Price_swap.pkl"
+ANALYSIS_PRICE_FILEPATH = "results/null_model/price_analysis_migration_check.pkl"
 
 # Child-to-Parent ID column map (essential for linking levels)
 # Defines which column in the *child* level DataFrame identifies its parent in the next level up.

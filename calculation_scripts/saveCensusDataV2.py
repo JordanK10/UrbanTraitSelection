@@ -13,7 +13,7 @@ from scipy.stats import lognorm
 api_key = "35d314060d56f894db2f7621b0e5e5f7eca9af27"
 # years   = np.linspace(10,23,14,dtype='int')
 # years   = np.linspace(10,23,14,dtype='int')
-years   = np.linspace(9,23,15,dtype='int')
+years   = np.linspace(9,23,15,dtype='int') 
 
 aggs    = ['bg','tr','cm','ct','st']
 # Define the desired variables for wage distribution
@@ -553,7 +553,7 @@ def fetchIncomeData(variable,y=False): # Remove unused 'y' parameter later if co
     # --- Load Community Mapping Data --- 
     # Moved from main() - Load this once before looping through years
     try:
-        communities = pd.concat([pd.read_csv('geo_data/matched_chicago_data.csv'), pd.read_csv('geo_data/matched_chicagoLand_data.csv')], axis=0)
+        communities = pd.concat([pd.read_csv('matched_chicago_data.csv'), pd.read_csv('matched_chicagoLand_data.csv')], axis=0)
         communities['GEOID'] = communities['GEOID'].astype(str)
         communities = communities.rename(columns={'GEOID': 'tract'}).set_index('tract')
         communities = communities[~communities['community'].isna()]

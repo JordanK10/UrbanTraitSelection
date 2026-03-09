@@ -665,8 +665,8 @@ def main():
     print("--- Running procPrice2.py ---")
 
     # --- Configuration ---
-    input_data_path = "calculation_scripts/data/census_data1.pkl"
-    output_data_path = "results/analysis_Price2.pkl"
+    input_data_path = "calculation_scripts/data/null_model/migration_check.pkl"
+    output_data_path = "results/null_model/price_analysis_migration_check.pkl"
     population_col_name = 'B19001_001E'
 
     global years # Make global years accessible
