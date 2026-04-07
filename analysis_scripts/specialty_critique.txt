@@ -1,0 +1,102 @@
+ First, you are not fitting the skew-t to the raw data. You are fitting it to a histogram:
+
+(
+bin centers
+,
+bin densities
+)
+(bin centers,bin densities)
+
+via curve_fit. That means the estimates depend on:
+
+the number of bins
+
+the bin edges
+
+the truncation of the histogram support
+
+the least-squares weighting on density values rather than likelihood on observations
+
+So these are really curve-through-histogram parameters, not clean maximum-likelihood estimates of a skew-t generative model. When tails are heavy, this can produce very weird 
+𝜈
+ν, 
+𝜇
+μ, and 
+𝜎
+σ.
+
+Second, your bounds explicitly allow the optimizer to push
+
+𝜈
+↓
+1
+ν↓1
+
+since you use
+
+bounds = ([1, np.min(clean_data), 1e-6, -10], 
+          [50, np.max(clean_data), np.std(clean_data)*5, 10])
+
+That is dangerous. Near 
+𝜈
+=
+1
+ν=1, the skew-t mean becomes extremely unstable, and tiny changes in parameters can imply huge changes in the mean. So the fact that your fitted loc looks inconsistent with the empirical mean is not surprising at all under this setup.
+
+Third, loc is not the sample mean, and your plot also draws three different vertical notions of center:
+
+purple line = empirical mean of cm_clean
+
+orange line = empirical mean of tr_clean
+
+black line = 
+0
+0
+
+So visually comparing fitted loc against the black line is not the right check.
+
+Fourth, you are also removing all exact zeros:
+
+clean_data = data[np.isfinite(data) & ~np.isnan(data) & (data != 0)]
+
+If zeros are meaningful rather than failed calculations, that can distort the center and tail balance.
+
+Fifth, you clip the fitted density vertically:
+
+y_fit = np.clip(y_fit, 0, y_max)
+
+That can visually make a pathological fit look more reasonable than it is.
+
+My honest read: the suspicious part is the fitting method, not the label assignment.
+
+What I would do next:
+
+Print the actual empirical means of cm_clean and tr_clean next to the fitted loc.
+
+Fit by MLE on raw observations, not by curve_fit on histogram bins.
+
+Constrain degrees of freedom more aggressively, e.g. 
+𝜈
+≥
+2
+ν≥2 or even 
+𝜈
+≥
+3
+ν≥3, unless you truly want infinite-variance fits.
+
+Compare with a symmetric 
+𝑡
+t, skew-normal, and KDE.
+
+On the same plot, annotate empirical mean / median / mode separately from fitted parameters.
+
+So: I do not think the labels are necessarily flipped. I think the skew-t fitting routine is producing unstable pseudo-fits.
+
+The single biggest culprit is this:
+
+popt, _ = curve_fit(skewt_pdf, bin_centers, hist, ...)
+
+That is the weak link.
+
+If you want, I can rewrite fit_skewt so it does a proper likelihood fit on the raw data and returns parameters that are much more interpretable.

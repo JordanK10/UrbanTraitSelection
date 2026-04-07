@@ -484,9 +484,7 @@ def create_ldr_variation_summary_plot(decomposition_results, output_dir, file_na
         if cook_county_only:
             if level == 'tr' or level == 'cm':
                 if 'ParentCounty' in df_level.columns:
-                    # Handle both 3-digit and 5-digit FIPS codes for Cook County
-                    # Tract level uses '031', Community level uses '17031'
-                    cook_county_mask = (df_level['ParentCounty'] == '17031') | (df_level['ParentCounty'] == '031')
+                    cook_county_mask = df_level['ParentCounty'].astype(str).str.endswith('031')
                     df_level = df_level[cook_county_mask].copy()
             elif level == 'ct':
                 if 'UnitName' in df_level.columns:

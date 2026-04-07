@@ -426,18 +426,7 @@ def run_analysis(input_dir, base_output_dir):
         dtype_spec = {county_col: str} if county_col else None
         
         df = pd.read_csv(config['data_path'], dtype=dtype_spec)
-        
-        # --- START FIX: Reconstruct ParentCounty for community level if it's missing ---
-        if level_code == 'cm' and county_col and county_col not in df.columns:
-            print(f"  '{county_col}' not found for Community level. Attempting to reconstruct from 'UnitName'.")
-            if 'UnitName' in df.columns:
-                # Assumes UnitName is 'COMMUNITYNAME_FIPS' and state is Illinois ('17')
-                df[county_col] = '17' + df['UnitName'].str.split('_').str[-1]
-                print(f"    Successfully created '{county_col}' column.")
-            else:
-                print(f"    Warning: 'UnitName' column not found. Cannot reconstruct county column.")
-        # --- END FIX ---
-                
+
         statewide_data[level_code] = df
         
         if county_col and county_col in df.columns:

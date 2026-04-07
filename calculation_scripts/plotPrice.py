@@ -1292,9 +1292,9 @@ def _generate_plots_for_dataset(decomposition_data_subset, output_plot_dir_name)
                     df_county = levels_data['ct']
                     if not df_county.empty and 'AvgG_pop_ct' in df_county.columns and 'UnitName' in df_county.columns:
                         
-                        # Create parent county identifier for lookup
-                        df_level['parent_county_id'] = df_level['ParentState'].astype(str) + df_level['ParentCounty'].astype(str)
-                        
+                        # Create parent county identifier for lookup (ParentCounty is now 5-digit FIPS)
+                        df_level['parent_county_id'] = df_level['ParentCounty'].astype(str)
+
                         # Create lookup dictionary for county growth rates
                         county_growth_lookup = dict(zip(df_county['UnitName'].astype(str), df_county['AvgG_pop_ct']))
                         
@@ -1354,7 +1354,7 @@ def _generate_plots_for_dataset(decomposition_data_subset, output_plot_dir_name)
                         
                         # Create parent county identifier for lookup (reuse if already created)
                         if 'parent_county_id' not in df_level.columns:
-                            df_level['parent_county_id'] = df_level['ParentState'].astype(str) + df_level['ParentCounty'].astype(str)
+                            df_level['parent_county_id'] = df_level['ParentCounty'].astype(str)
                         
                         # Create lookup dictionary for county income growth rates
                         county_income_growth_lookup = dict(zip(df_county['UnitName'].astype(str), df_county['AvgG_inc_ct']))
@@ -1443,8 +1443,8 @@ def _filter_data_for_cook_county(full_data_dict, target_county_fips_3digit='031'
             elif agg_level == 'tr': # SSCCCTTTTTT
                 df_filtered_for_level = df_orig[df_orig_unitname_str.str[2:5] == target_county_fips_3digit]
             elif agg_level == 'cm':
-                if 'ParentCounty' in df_orig.columns: # ParentCounty is expected to be 3-digit FIPS
-                    df_filtered_for_level = df_orig[df_orig['ParentCounty'].astype(str) == target_county_fips_3digit]
+                if 'ParentCounty' in df_orig.columns:
+                    df_filtered_for_level = df_orig[df_orig['ParentCounty'].astype(str).str.endswith(target_county_fips_3digit)]
                 # else: print(f"    Warning: 'ParentCounty' not in '{agg_level}'. Cook filter empty.")
             elif agg_level == 'ct': # UnitName is SSCCC or CCC
                  df_filtered_for_level = df_orig[df_orig_unitname_str.str.endswith(target_county_fips_3digit)]

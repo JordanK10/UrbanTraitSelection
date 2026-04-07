@@ -1,0 +1,149 @@
+\section{Introduction}
+Understanding aggregate growth requires distinguishing between changes that occur within units—such as firms, neighborhoods, or individuals—and those that arise from reallocation across them.
+Two traditions have approached this question independently.
+In evolutionary and population-dynamics theory, the Price equation \citep{Price1970,Price1972} provides an exact decomposition of the change in any population-averaged trait into a within-unit component and a compositional or selection component.
+This framework has become fundamental in evolutionary biology and has increasingly been applied to cultural and social dynamics, where shifts in population composition—migration, imitation, sorting—drive aggregate change even when individual behaviors remain fixed.
+In economics, a parallel logic underlies the Olley–Pakes (OP) decomposition \citep{OlleyPakes1992}.
+Here, aggregate productivity is expressed as a weighted average of firm-level productivities, where the covariance between productivity and market share captures reallocation or selection across firms.
+Subsequent research in industrial dynamics, trade, and growth accounting has shown that this reallocation term often accounts for a large share of aggregate productivity growth.
+The OP framework thus isolates the role of market selection: how resources shift toward more productive firms through entry, exit, and expansion.
+Although algebraically related, the Price and Olley–Pakes frameworks have remained conceptually and methodologically distinct.
+The Price equation tracks changes in population composition (shifts in weights across units) while holding the “trait” definition fixed—typically weighting by population shares and measuring the evolution of mean traits such as income or fitness.
+By contrast, the OP decomposition weights by economic magnitude (income, output, or employment shares) and measures how these magnitudes reallocate toward faster-growing units.
+In short, Price captures who people are and where they move, whereas Olley–Pakes captures how resources shift among them.
+Yet in most social and urban systems, demographic and economic reallocations are tightly coupled: population movements alter spending, demand, and labor supply, while income changes affect where people live, work, and invest.
+To describe adaptive social systems in which population and income evolve together, one therefore needs a unified decomposition that preserves the compositional precision of the Price equation and the allocative sensitivity of the Olley–Pakes decomposition.
+Such a framework would allow us to quantify how aggregate growth arises jointly from (i) within-unit income changes, (ii) demographic sorting across units, and (iii) reallocation of income toward faster-growing or wealthier units.
+This paper derives an exact discrete-time identity that integrates these two approaches within a symmetric (Törnqvist/Fisher) index-number framework.
+The resulting expression—what we term the Price–Olley–Pakes (POP) decomposition—shows that aggregate log-income growth can be written exactly as the sum of a within-unit term, a population-sorting term, and an income-reallocation term, without approximation or residual.
+This unification provides a rigorous foundation for studying multilevel selection and adaptation in economic and spatial systems, where both population and capital distributions co-evolve.
+
+
+Consider unit $k$ that is a member of a disjoint subset of parent unit $j$.
+From a population $p_{k,t}$, we  define a population share as 
+\begin{equation}
+    f_{k,t} \equiv \frac{p_{k,t}}{\sum_{l\in j} p_{l,t}}; 
+\qquad \sum_k f_{k,t} = 1.
+\end{equation}
+We describe this spatial unit by the value of a scalar trait $z$.
+For this note, consider $z=\ln y$, where $y_{k,t}$ is the per-capita income at time $t$.
+We characterize the income averaged across all units as \footnote{For the sake of completeness, we could also define $\textrm E_j[\ln y_k]=\sum_{k\in j}f_k\ln y_k=\textrm{E}_j[z_k]$, which differs from $\ln y_j$ by Jensen's inequality.}
+\begin{equation}
+y_{j,t} \equiv \sum_{k\in j} f_{k,t} y_{k,t} = E_{j}[y_{k,t}].
+\end{equation}
+We similarly define income shares as 
+\[
+s_{k,t} \equiv \frac{f_{k,t}y_{k,t}}{y_{j,t}}\equiv f_{k,t}f_{k,t}^y.
+\]
+The change in trait for unit $k$ between $t$ and $t'$ is given by the difference in the trait $\Delta\ln y_k=z_{k,t^\prime}-z_{k,t}$.
+If we assume for convenience that $\Delta t=1$, we can express this change in trait as the compound growh rate.
+\[
+\gamma_k \equiv \Delta \ln y_k.
+\]
+
+In this note, I decompose this growth rate, or the change in log incomes (trait) across the population, in terms of two distinct statistical features. 
+The first measures compositional changes in population across units. 
+Commonly explored using the Price equation, it is applied broadly in the ecology and evolution literature. 
+The second measures the reallocation of growth rates in incomes (or change in trait). 
+This kind of selection effect is studied with the Olley-Pakes decomposition and is of interest in the economics community. 
+This method will build from the definition of the growth rate averaged across the population\footnote{For other definitions of aggregate growth rate and their relationships, see the supplement of \cite{kemp2025spatial}}
+\begin{equation}\label{popgrowth}
+\gamma_j^p\equiv\Delta E_j[\ln y] 
+= \sum_k \big(f_{k,t'}\ln y_{k,t'} - f_{k,t}\ln y_{k,t}\big).
+\end{equation}
+Throughout this note, we substitute $z$ for log incomes $\ln y$  when convenient, but use the income-explicit definition often to maintain interpretability. 
+
+\subsection{Compositional changes from the midpoint}
+
+I start by defining the midpoint of both the change in  fractional population and log incomes for unit $k$ between timesteps.
+\[
+\bar f_k \equiv \tfrac12(f_{k,t} + f_{k,t'}), 
+\qquad 
+\overline{z}_k \equiv \tfrac12(\ln y_{k,t} + \ln y_{k,t'}).
+\]
+Adding and subtracting the weighted log income at the initial time,   $\bar f_kz_{k,t}$ and final time, $\bar f_kz_{k,t'}$ inside \ref{popgrowth} yields the expression
+\begin{align*}
+\gamma_j^p
+=& \sum_k \Big(f_{k,t'} - \bar f_k\Big)z_{k,t^\prime} 
+   + \sum_k \bar f_k(z_{k,t'} - z_{k,t})
+    \\
+   &+\sum_k \Big(\bar f_k 
+   - f_{k,t}\Big)z_{k,t} 
+   \end{align*}
+The second term simplifies by the identity $\Delta z_k=z_{k,t^\prime}-z_{k,t}$. Regrouping the first and third terms by $\bar f_k$ allows for the substitution of our prior identity. 
+These terms then combine to yield
+\begin{align*}
+&= \sum_k \bar f_k \,\Delta z_k
+   + \sum_k (f_{k,t'} - f_{k,t})\,\tfrac12(\ln y_{k,t'} + \ln y_{k,t}).
+\end{align*}
+
+We substitute the \textit{effective fitness},  $\Delta f_k = f_{k,t'} - f_{k,t}$, measuring the compositional shift in population, into the expression to yield the Price-like decomposition
+
+\begin{equation*}
+\gamma_j^p
+= 
+\sum_k \bar f_k\,\gamma_k
++
+\sum_k \Delta f_k\,\overline{z_k}.
+\label{eq:SymPrice}
+\end{equation*}
+Considering that $\sum_k \Delta w_k = 0$, the second term can be written as a covariance under midpoint weights. 
+Substituting in the normalized effective fitness, $\omega_k=\Delta f_k/\bar f_k$, we can rewrite the growth rate as 
+\begin{equation}\label{price}
+  \gamma_j^p= \overline {\textrm E}_j[\gamma_k]+
+\operatorname{cov}_j[\bar z_k,\omega_k
+],  
+\end{equation}
+
+This result looks remarkably like the  classical Price equation, but differs in a few key aspects. 
+The first term, taking the role of the classical transmission term, is evaluated at the midpoint. 
+This has the effect of smoothing over compositional changes by using the average population share across periods, which yields a balanced representation of both initial and final population structures.
+The selection term is also slightly different. 
+In the original Price equation, selection is driven by multiplicative
+fitness $w_k = p_{k,t'}/p_{k,t}$. 
+In our finite-time discrete setting, we
+instead observe the change in population shares $\omega_k\propto f_{k,t'}-f_{k,t}$, defined as any real value whereas fitness is strictly non-negative.
+Although $\omega_k$ is not a multiplicative fitness term, it plays the same
+mathematical role as generalized fitness operator whose covariance
+with $\ln y_k$ measures the contribution of population sorting to aggregate
+change.  
+In the continuous-time or small-step limit, 
+$\omega_k$ converges exactly to the classical Price fitness
+gradient $(1/\omega_k)\, d\omega_k/dt$.
+
+
+\subsection{Reallocation decomposition }
+
+Similarly to before, we identify the midpoint of income shares
+$\bar s_k \equiv \tfrac12(s_{k,t} + s_{k,t'})$ and add and subtract
+$\sum_k \bar s_k \gamma_k$ inside the transmission term of~\eqref{price}. 
+This yields
+\begin{align}
+ \overline {\textrm E}_j[\gamma_k]
+    &= \sum_k \bar s_k\,\gamma_k
+       \;-\;
+       \sum_k (\bar s_k - \bar f_k)\,\gamma_k .
+\label{eq:addsubtract}
+\end{align}
+Using the identity $s_{k} = f_{k} f_{k}^y$, where
+$f_{k}^y = y_{k} / y_{j}$ is the relative income, we expand the
+difference between the midpoint income and population shares:
+\[
+\bar s_k - \bar f_k
+=
+\tfrac12\left[
+f_{k,t}\big(f_{k,t}^y - 1\big)
++
+f_{k,t'}\big(f_{k,t'}^y - 1\big)
+\right].
+\]
+
+We see that this midpoint evaluation rewrites the within-unit contribution
+in terms of income-share weights $\bar s_k$, while the residual term
+$\sum_k (\bar s_k - \bar f_k)\gamma_k$ isolates the reallocation effect.
+This measures the extent to which units with above average income, $f_{k,t}^y>1$ or below average 
+income ($f_{k,t}^y<1$) contribute disproportionately to aggregate
+growth when their income share diverges from their population share.
+We show in supplement 1 that,   
+to first order, this expression reduces to 
+$(\bar s_k-\bar f_k)\gamma_k \approx \mathrm{cov}_j\!\big(f_k^y,\gamma\big)$.

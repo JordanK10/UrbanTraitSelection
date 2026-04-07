@@ -66,7 +66,7 @@ variable_str = ",".join(income_vars)
 counties = ["031",  "043",  "089",  "093",  "097", "111",  "197"]#,  "089", "127",  "059"]  
 states   = ["17" ,  "17" ,  "17" ,  "17" ,  "17" , "17" ,  "17"]#,  "18" , "18" ,  "55" ]  # State codes
 cty_name = ["Cook", "DuPg", "Kane", "Kndl", "Lke", "McHn", "Will"]#, "Lke", "Prtr", "Knsh"]
-COUNTY_FIPS_TO_NAME_MAP = dict(zip(counties, cty_name))
+COUNTY_FIPS_TO_NAME_MAP = dict(zip(['17' + c for c in counties], cty_name))
 
 # Define the geography: Get data for block groups in the Chicago metro area
 # List of counties in the Chicago metro area
@@ -230,7 +230,7 @@ def genAggregatedDFs(aggs,data_to_aggregate, input_level, variables, year, commu
          # Call self with empty list to get standard empty structures
          return genAggregatedDFs([], 'none', variables, year, None)
 
-    # --- Prepare Identifiers & Community Mapping --- 
+    # --- Prepare Identifiers & Community Mapping ---
     # These steps rely on 'state', 'county', 'tract' existing in the input
     required_id_cols = ['state', 'county', 'tract']
     if not all(col in df_processed.columns for col in required_id_cols):
@@ -438,13 +438,7 @@ def genAggregatedDFs(aggs,data_to_aggregate, input_level, variables, year, commu
     # Ensure commu_agg index is stripped before merge
     commu_agg.index = commu_agg.index.astype(str).str.strip()
     df_community = pd.merge(df_community, commu_agg, left_index=True, right_index=True, how='left') # Add back state/county for this community
-    
-    # --- NEW: Create 5-digit county FIPS code for consistency ---
-    if 'state' in df_community.columns and 'county' in df_community.columns:
-        df_community['county'] = df_community['state'].astype(str).str.strip() + df_community['county'].astype(str).str.strip()
-        print(f"    Created 5-digit FIPS for 'county' column in community DataFrame for year {year}.")
-    # --- END NEW ---
-    
+
     # Strip index after merge and apply upper case
     df_community.index = df_community.index.astype(str).str.strip().str.upper()
 
@@ -539,6 +533,14 @@ def genAggregatedDFs(aggs,data_to_aggregate, input_level, variables, year, commu
         print(f"  DEBUG genAggregatedDFs ({year}): df_state head for B19001_001E:")
         print(df_state[['B19001_001E']].head())
     # --- END DEBUG ---
+
+    # Normalize county to 5-digit FIPS (state+county) uniformly across all returned levels.
+    # All internal joins above used the original 3-digit county; this conversion happens last
+    # so that BG, TR, and CM carry the same county format as the CT index ('17031').
+    for df in [df_blockgroup, df_tract, df_community]:
+        if df is not None and 'county' in df.columns and 'state' in df.columns:
+            df['county'] = df['state'].astype(str).str.strip() + df['county'].astype(str).str.strip().str.zfill(3)
+    print(f"  genAggregatedDFs ({year}): Normalized county to 5-digit FIPS across bg, tr, cm levels.")
 
     # Return the results in the standard order
     # Note: df_blockgroup will be None if input_level was 'tr'

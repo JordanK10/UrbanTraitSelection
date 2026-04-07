@@ -15,7 +15,7 @@ import os
 import math
 import sys
 from scipy.stats import t, beta, gaussian_kde, chi2, gamma
-from scipy.optimize import curve_fit
+from scipy.optimize import minimize
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -87,33 +87,67 @@ def skewt_pdf(x, df, loc, scale, alpha):
     
     return 2 * t_pdf * t_cdf / scale
 
+def _skewt_neg_log_likelihood(params, data):
+    """Negative log-likelihood for the skew-t distribution."""
+    df, loc, scale, alpha = params
+    if scale <= 0 or df <= 0:
+        return 1e12
+    pdf_vals = skewt_pdf(data, df, loc, scale, alpha)
+    pdf_vals = np.maximum(pdf_vals, 1e-300)
+    return -np.sum(np.log(pdf_vals))
+
 def fit_skewt(data):
     """
-    Fit skew-t distribution to data using curve_fit
-    Returns: (df, loc, scale, alpha) or None if fit fails
+    Fit skew-t distribution via MLE on raw observations.
+    df >= 3 ensures finite mean and variance.
+    Returns: (df, loc, scale, alpha) or None if fit fails.
     """
+    # Zeros represent upstream data unsuitability; remove them along with NaN/inf
     clean_data = data[np.isfinite(data) & ~np.isnan(data) & (data != 0)]
-    
+    n_removed = len(data) - len(clean_data)
+    if n_removed > 0:
+        print(f"    [fit_skewt] Removed {n_removed} values (NaN/inf/zero) from {len(data)} observations")
+
     if len(clean_data) < 10:
         return None
-    
-    # Create histogram for fitting
-    hist, bin_edges = np.histogram(clean_data, bins=min(30, len(clean_data)//5), density=True)
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-    
-    # Initial parameter guesses
-    p0 = [5, np.mean(clean_data), np.std(clean_data), 0]
-    
-    # Parameter bounds: df > 1, scale > 0, alpha can be negative or positive
-    bounds = ([1, np.min(clean_data), 1e-6, -10], 
-              [50, np.max(clean_data), np.std(clean_data)*5, 10])
-    
+
+    x0 = [5.0, np.median(clean_data), np.std(clean_data), 0.0]
+    bounds = [(3.0, 50.0),
+              (np.min(clean_data), np.max(clean_data)),
+              (1e-6, np.std(clean_data) * 5),
+              (-10.0, 10.0)]
+
+    best_result = None
+    best_nll = np.inf
+
+    for df_init in [3.0, 5.0, 10.0]:
+        for alpha_init in [-1.0, 0.0, 1.0]:
+            x0_trial = [df_init, np.median(clean_data), np.std(clean_data), alpha_init]
+            try:
+                result = minimize(_skewt_neg_log_likelihood, x0_trial, args=(clean_data,),
+                                  method='L-BFGS-B', bounds=bounds, options={'maxiter': 5000})
+                if result.success and result.fun < best_nll:
+                    best_nll = result.fun
+                    best_result = result
+            except Exception:
+                continue
+
+    if best_result is not None and best_result.success:
+        return tuple(best_result.x)
+
+    # Fallback: try Nelder-Mead (unbounded) with clamping
     try:
-        popt, _ = curve_fit(skewt_pdf, bin_centers, hist, p0=p0, bounds=bounds, maxfev=5000)
-        return tuple(popt)  # Convert numpy array to tuple: (df, loc, scale, alpha)
+        result = minimize(_skewt_neg_log_likelihood, x0, args=(clean_data,),
+                          method='Nelder-Mead', options={'maxiter': 10000, 'xatol': 1e-8})
+        if result.success:
+            df, loc, scale, alpha = result.x
+            df = max(3.0, min(df, 50.0))
+            scale = max(1e-6, scale)
+            return (df, loc, scale, alpha)
     except Exception as e:
-        print(f"Skew-t fit failed: {e}")
-        return None
+        print(f"Skew-t MLE fit failed: {e}")
+
+    return None
 
 # Custom gamma implementation from scratch
 def gamma_pdf(x, shape, loc, scale):
@@ -143,51 +177,43 @@ def gamma_pdf(x, shape, loc, scale):
 
 def fit_gamma(data):
     """
-    Fit gamma distribution to data from scratch
-    Returns: (shape, loc, scale) or None if fit fails
+    Fit gamma distribution via MLE on raw observations using scipy.stats.gamma.fit.
+    Returns: (shape, loc, scale) or None if fit fails.
     """
+    # Zeros represent upstream data unsuitability; remove them along with NaN/inf
     clean_data = data[np.isfinite(data) & ~np.isnan(data) & (data > 0)]
-    
+    n_removed = len(data) - len(clean_data)
+    if n_removed > 0:
+        print(f"    [fit_gamma] Removed {n_removed} values (NaN/inf/non-positive) from {len(data)} observations")
+
     if len(clean_data) < 10:
         return None
-    
-    # Create histogram for fitting
-    hist, bin_edges = np.histogram(clean_data, bins=min(30, len(clean_data)//5), density=True)
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-    
-    # Initial parameter guesses
-    data_mean = np.mean(clean_data)
-    data_var = np.var(clean_data)
-    data_min = np.min(clean_data)
-    
-    # Method of moments initial guesses
-    initial_scale = data_var / data_mean if data_mean > 0 else 1.0
-    initial_shape = data_mean / initial_scale if initial_scale > 0 else 1.0
-    initial_loc = max(0, data_min - 0.1)
-    
-    p0 = [initial_shape, initial_loc, initial_scale]
-    
-    # Parameter bounds: shape > 0, loc >= 0, scale > 0
-    bounds = ([0.1, 0, 0.01], 
-              [50, data_min, data_var * 10])
-    
+
     try:
-        popt, _ = curve_fit(gamma_pdf, bin_centers, hist, p0=p0, bounds=bounds, maxfev=5000)
-        return tuple(popt)  # (shape, loc, scale)
+        shape, loc, scale = gamma.fit(clean_data, floc=0)
+        return (shape, loc, scale)
     except Exception as e:
-        print(f"Gamma fit failed: {e}")
+        print(f"Gamma MLE fit failed: {e}")
         return None
 
 # --- Plotting ---
 def plot_hist(cm, tr, name, dist_type):
-    # Remove NaN, inf, and exactly zero values (0 means calculation failed)
+    # Remove NaN, inf, and exactly zero values.
+    # Zeros indicate upstream data unsuitability (missing census data, unmatched units),
+    # not genuine zero growth/selection. Removing them is a data-quality filter.
     cm_clean = cm[np.isfinite(cm) & ~np.isnan(cm) & (cm != 0)]
     tr_clean = tr[np.isfinite(tr) & ~np.isnan(tr) & (tr != 0)]
+    cm_removed = len(cm) - len(cm_clean)
+    tr_removed = len(tr) - len(tr_clean)
     all_data = np.concatenate([cm_clean, tr_clean])
     
     print(f"\n{'='*60}")
     print(f"PLOT: {name} ({dist_type.upper()} distribution)")
     print(f"{'='*60}")
+    if cm_removed > 0:
+        print(f"  Community: removed {cm_removed}/{len(cm)} values (NaN/inf/zero)")
+    if tr_removed > 0:
+        print(f"  Tract: removed {tr_removed}/{len(tr)} values (NaN/inf/zero)")
     
     # Print comprehensive data statistics
     print(f"\nDATA STATISTICS:")
@@ -278,9 +304,8 @@ def plot_hist(cm, tr, name, dist_type):
                 print(f"  - SUCCESS: df={df:.6f}, loc={loc:.6f}, scale={scale:.6f}, skew={a:.6f}")
                 x = np.linspace(cm_clean.min(), cm_clean.max(), 200)
                 y_fit = skewt_pdf(x, df, loc, scale, a)
-                y_fit = np.clip(y_fit, 0, y_max)
                 ax.plot(x, y_fit, color=dark_purple, linewidth=2.5)
-                cm_stats_text = f'df = {df:.3f}\nloc = {loc:.3f}\nscale = {scale:.3f}\nskew = {a:.3f}\nmean = {cm_clean.mean():.3f}'
+                cm_stats_text = f'df = {df:.3f}\nloc = {loc:.3f}\nscale = {scale:.3f}\nskew = {a:.3f}\nmean = {cm_clean.mean():.3f}\nmed = {np.median(cm_clean):.3f}'
                 print(f"  - Fit curve: min={y_fit.min():.6f}, max={y_fit.max():.6f}")
             else:
                 print(f"  - FAILED: Could not fit skew-t distribution")
@@ -291,9 +316,8 @@ def plot_hist(cm, tr, name, dist_type):
                 print(f"  - SUCCESS: shape={shape:.6f}, loc={loc:.6f}, scale={scale:.6f}")
                 x = np.linspace(cm_clean.min(), cm_clean.max(), 200)
                 y_fit = gamma_pdf(x, shape, loc, scale)
-                y_fit = np.clip(y_fit, 0, y_max)
                 ax.plot(x, y_fit, color=dark_purple, linewidth=2.5)
-                cm_stats_text = f'shape = {shape:.3f}\nloc = {loc:.3f}\nscale = {scale:.3f}\nmean = {cm_clean.mean():.3f}'
+                cm_stats_text = f'shape = {shape:.3f}\nloc = {loc:.3f}\nscale = {scale:.3f}\nmean = {cm_clean.mean():.3f}\nmed = {np.median(cm_clean):.3f}'
                 print(f"  - Fit curve: min={y_fit.min():.6f}, max={y_fit.max():.6f}")
             else:
                 print(f"  - FAILED: Could not fit gamma distribution")
@@ -309,9 +333,8 @@ def plot_hist(cm, tr, name, dist_type):
                 print(f"  - SUCCESS: df={df:.6f}, loc={loc:.6f}, scale={scale:.6f}, skew={a:.6f}")
                 x = np.linspace(tr_clean.min(), tr_clean.max(), 200)
                 y_fit = skewt_pdf(x, df, loc, scale, a)
-                y_fit = np.clip(y_fit, 0, y_max)
                 ax.plot(x, y_fit, color=dark_orange, linewidth=2.5)
-                tr_stats_text = f'df = {df:.3f}\nloc = {loc:.3f}\nscale = {scale:.3f}\nskew = {a:.3f}\nmean = {tr_clean.mean():.3f}'
+                tr_stats_text = f'df = {df:.3f}\nloc = {loc:.3f}\nscale = {scale:.3f}\nskew = {a:.3f}\nmean = {tr_clean.mean():.3f}\nmed = {np.median(tr_clean):.3f}'
                 print(f"  - Fit curve: min={y_fit.min():.6f}, max={y_fit.max():.6f}")
             else:
                 print(f"  - FAILED: Could not fit skew-t distribution")
@@ -322,17 +345,18 @@ def plot_hist(cm, tr, name, dist_type):
                 print(f"  - SUCCESS: shape={shape:.6f}, loc={loc:.6f}, scale={scale:.6f}")
                 x = np.linspace(tr_clean.min(), tr_clean.max(), 200)
                 y_fit = gamma_pdf(x, shape, loc, scale)
-                y_fit = np.clip(y_fit, 0, y_max)
                 ax.plot(x, y_fit, color=dark_orange, linewidth=2.5)
-                tr_stats_text = f'shape = {shape:.3f}\nloc = {loc:.3f}\nscale = {scale:.3f}\nmean = {tr_clean.mean():.3f}'
+                tr_stats_text = f'shape = {shape:.3f}\nloc = {loc:.3f}\nscale = {scale:.3f}\nmean = {tr_clean.mean():.3f}\nmed = {np.median(tr_clean):.3f}'
                 print(f"  - Fit curve: min={y_fit.min():.6f}, max={y_fit.max():.6f}")
             else:
                 print(f"  - FAILED: Could not fit gamma distribution")
-    # --- Mean and reference lines ---
+    # --- Mean (solid), median (dashed), and zero reference lines ---
     if len(cm_clean) > 0:
         ax.axvline(cm_clean.mean(), color=dark_purple, linestyle='-', linewidth=1.5, alpha=0.75)
+        ax.axvline(np.median(cm_clean), color=dark_purple, linestyle='--', linewidth=1.0, alpha=0.6)
     if len(tr_clean) > 0:
         ax.axvline(tr_clean.mean(), color=dark_orange, linestyle='-', linewidth=1.5, alpha=0.75)
+        ax.axvline(np.median(tr_clean), color=dark_orange, linestyle='--', linewidth=1.0, alpha=0.6)
     ax.axvline(0, color='black', linestyle='-', linewidth=1.5, alpha=0.75)
     # --- Statistics boxes ---
     if cm_stats_text:
@@ -353,11 +377,8 @@ def plot_hist(cm, tr, name, dist_type):
     x_max_limit = mean_value + 2 * std_value
     ax.set_xlim(x_min_limit, x_max_limit)
     
-    # Set y-axis limit - force max to 9.9 for Income LDR
-    if 'income ldr' in name.lower():
-        ax.set_ylim(0, .099)
-    else:
-        ax.set_ylim(0, y_max * 1.05)
+    # Let y-axis auto-scale so the fitted PDF is shown honestly
+    ax.set_ylim(bottom=0)
     
     # Spines
     for spine in ['top', 'right', 'left', 'bottom']:
@@ -378,7 +399,7 @@ def plot_hist(cm, tr, name, dist_type):
 
 
 def plot_hist_log_scale(cm, tr, name, dist_type):
-    # This function is a duplicate of plot_hist, but with a logarithmic y-axis.
+    # Log-scale y-axis variant. Same zero-removal rationale as plot_hist.
     cm_clean = cm[np.isfinite(cm) & ~np.isnan(cm) & (cm != 0)]
     tr_clean = tr[np.isfinite(tr) & ~np.isnan(tr) & (tr != 0)]
     all_data = np.concatenate([cm_clean, tr_clean])
@@ -447,9 +468,13 @@ def plot_hist_log_scale(cm, tr, name, dist_type):
                 y_fit = gamma_pdf(x, *tr_fit)
                 ax.plot(x, y_fit, color=dark_orange, linewidth=2.5)
 
-    # --- Mean and reference lines ---
-    if len(cm_clean) > 0: ax.axvline(cm_clean.mean(), color=dark_purple, linestyle='-', linewidth=1.5, alpha=0.75)
-    if len(tr_clean) > 0: ax.axvline(tr_clean.mean(), color=dark_orange, linestyle='-', linewidth=1.5, alpha=0.75)
+    # --- Mean (solid), median (dashed), and zero reference lines ---
+    if len(cm_clean) > 0:
+        ax.axvline(cm_clean.mean(), color=dark_purple, linestyle='-', linewidth=1.5, alpha=0.75)
+        ax.axvline(np.median(cm_clean), color=dark_purple, linestyle='--', linewidth=1.0, alpha=0.6)
+    if len(tr_clean) > 0:
+        ax.axvline(tr_clean.mean(), color=dark_orange, linestyle='-', linewidth=1.5, alpha=0.75)
+        ax.axvline(np.median(tr_clean), color=dark_orange, linestyle='--', linewidth=1.0, alpha=0.6)
     ax.axvline(0, color='black', linestyle='-', linewidth=1.5, alpha=0.75)
     
     # --- Aesthetics ---
