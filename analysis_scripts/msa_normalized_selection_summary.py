@@ -79,17 +79,25 @@ def create_msa_normalized_summary_plot(decomposition_results):
     """
     print("--- Generating MSA-Normalized Selection Summary ---")
     
-    # 1. Get the MSA's total growth rate from the state-level data
+    # 1. Normalize by LHS_AvgG_pop_st: the MSA-level change in population-weighted
+    #    E[ln y] per year (hybrid initial/final weights), i.e. the LHS of the _pop
+    #    single-level Price equation at state — not AvgG_pop_st (recursive sum).
     try:
         df_st = decomposition_results[BASE_ANALYSIS_LEVEL]['st']
-        msa_growth_rate = df_st['AvgG_pop_st'].iloc[0]
+        msa_growth_rate = df_st["LHS_AvgG_pop_st"].iloc[0]
         if pd.isna(msa_growth_rate) or msa_growth_rate == 0:
-            print("Error: MSA growth rate is zero or NaN. Cannot normalize.")
+            print(
+                "Error: LHS_AvgG_pop_st is zero or NaN. Cannot normalize. "
+                "(Check that MSA LogAvgInc initial ≠ final in aggregatePriceV5 output.)"
+            )
             return
         msa_growth_rate = abs(msa_growth_rate)
-        print(f"Found MSA growth rate: {msa_growth_rate:.4f}")
+        print(f"Found MSA LHS (_pop path, ΔE[ln y]/yr): {msa_growth_rate:.6f}")
     except (KeyError, IndexError):
-        print("Error: Could not retrieve MSA growth rate from state-level data.")
+        print(
+            "Error: Could not retrieve LHS_AvgG_pop_st from state-level data "
+            "(column missing?)."
+        )
         return
 
     # 2. Define levels and the corresponding selection columns

@@ -321,7 +321,7 @@ def _recursively_calculate_avg_log_income(incomes_data, population_col):
     CHILD_TO_PARENT_LINK_MAP = {
         'bg': {'parent_level': 'tr', 'link_on': 'temp_tract_id'},
         'tr': {'parent_level': 'cm', 'link_on': 'community'},
-        'cm': {'parent_level': 'ct', 'link_on': ['state', 'county']},
+        'cm': {'parent_level': 'ct', 'link_on': 'county'},
         'ct': {'parent_level': 'st', 'link_on': 'state'}
     }
 
@@ -665,8 +665,8 @@ def main():
     print("--- Running procPrice2.py ---")
 
     # --- Configuration ---
-    input_data_path = "calculation_scripts/data/null_model/migration_check.pkl"
-    output_data_path = "results/null_model/price_analysis_migration_check.pkl"
+    input_data_path = "calculation_scripts/data/null_model/migration_gravity.pkl"
+    output_data_path = "results/null_model/price_analysis_migration_gravity.pkl"
     population_col_name = 'B19001_001E'
 
     global years # Make global years accessible

@@ -1,0 +1,104 @@
+Bug Report: Urban Trait Selection Analysis Pipeline
+=====================================================
+Generated: April 2026
+
+=== CRITICAL ===
+
+Bug #1 — LHS_AvgG_pop_st = 0 (FIXED)
+File: calculation_scripts/procPrice.py
+Function: _recursively_calculate_avg_log_income
+Line: ~324
+
+Root cause:
+  The CHILD_TO_PARENT_LINK_MAP for the cm → ct step used:
+      'link_on': ['state', 'county']
+  The 'county' column in the community (cm) dataframe already contains the full
+  5-digit county FIPS (e.g. '17043'), which is exactly what the ct dataframe is
+  indexed by. Grouping by ['state', 'county'] creates a MultiIndex
+  ('17', '17043') that can never match the ct index '17043' via
+  df_parent.index.map(...). This caused AvgLogInc to be NaN for all 7 counties,
+  which then summed to 0.0 at the state level, making LHS_AvgG_pop_st = 0.
+
+Effect:
+  - AvgLogIncInitial_ct / AvgLogIncFinal_ct were NaN for every county
+  - LHS_AvgG_pop_ct and LHS_AvgG_pop_st were 0
+  - msa_normalized_selection_summary.py divided by 0, producing inf or
+    triggering the zero-guard and aborting
+
+Fix applied:
+  Changed 'link_on': ['state', 'county'] → 'link_on': 'county'
+  The ct → st link ('link_on': 'state') was verified correct and unchanged.
+
+
+Bug #2 — aggregatePriceV5.py defaults to null model data
+File: calculation_scripts/aggregatePriceV5.py
+Line: 19
+
+  ANALYSIS_PRICE_FILEPATH defaults to:
+    "results/null_model/price_analysis_migration_gravity.pkl"
+  Running the script without editing this line processes gravity null model
+  data rather than the real analysis. The real-data path is commented out above
+  it. Must be manually changed before any real-data analysis run.
+
+=== MODERATE ===
+
+Bug #3 — calculate_avg_log_income has wrong docstring
+File: calculation_scripts/procHelpers.py
+Line: ~179
+
+  Both calculate_log_avg_income and calculate_avg_log_income share the same
+  docstring "Calculates log(E[Income])". The implementation of
+  calculate_avg_log_income correctly computes E[ln(Income)] = Σ p_j * ln(x_j),
+  which is the Price equation trait z = E[ln y]. The docstring is copy-pasted
+  and wrong. A developer "fixing" the implementation to match the docstring
+  would break the Price equation trait.
+
+Bug #4 — Dead NaN guard in calculate_avg_log_income
+File: calculation_scripts/procHelpers.py
+Line: ~209
+
+  if expected_log_income == np.nan:   # always False; NaN != NaN in Python
+  Should be: if pd.isna(expected_log_income):
+
+=== CONCEPTUAL / DESIGN ===
+
+Bug #5 — msa_normalized_selection_summary.py plots ρ (magnitude), not ω (signed net effect)
+File: analysis_scripts/msa_normalized_selection_summary.py
+Line: 128
+
+  The code takes abs() before averaging, computing ⟨ρ^p_j⟩ (mean selection
+  magnitude, upper panel of Fig. 4D). The signed, transmitted aggregate
+  contribution ω^p_j (lower panel of Fig. 4D) — where opposing-sign sibling
+  units cancel — is a different quantity and is not implemented here.
+  Both ρ and ⟨|ρ|⟩ have physical meaning and are reported in the paper;
+  the plot title should clarify which is shown.
+
+  NOTE: The user has confirmed this is intentional and acceptable.
+
+Bug #6 — Fitness normalization: code uses parent-relative, paper states MSA-relative
+File: calculation_scripts/aggregatePriceV5.py
+Function: _part_d_calculate_selection_terms
+
+  The paper (Eq. B4, text after Eq. 5) states that in the multi-level
+  decomposition all fitnesses are defined relative to the MSA: w̄_k = w_k/w_m.
+  The code uses immediate-parent-relative fitness at each level and transmits
+  upward recursively. These give different numerical values for individual
+  level selection terms. Internal consistency can be verified via the
+  SanChk_SingleLevel_pop_* and SanChk_MultiLevel_pop_* columns in the output.
+
+=== MINOR ===
+
+Bug #7 — Wrong comment on TARGET_N
+File: calculation_scripts/aggregatePriceV5.py
+Line: 11
+
+  TARGET_N = 5  # Example: 9-year period for analysis
+  The value 5 is correct (2014–2019). The comment "9-year period" is stale.
+
+Bug #8 — specialty_histogram2_jordan.py docstring/implementation mismatch
+File: specialty_histogram2_jordan.py
+
+  The docstring says the community-level plot shows "sum of transmitted and
+  selection terms" but the code uses only selection terms (via extract_tr)
+  for both the community and tract level plots. Either the docstring or the
+  implementation should be corrected.

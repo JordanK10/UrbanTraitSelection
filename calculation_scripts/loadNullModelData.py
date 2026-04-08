@@ -72,6 +72,22 @@ MODEL_CONFIGS = {
         },
         'output': 'calculation_scripts/data/null_model/migraion_check.pkl',
         'name': 'Migration Check Null Model'
+    },
+    'migration_meeting': {
+        'files': {
+            14: "null_model/simulation_results/data_null_migration/Census-Data-2014.csv",
+            19: "null_model/simulation_results/data_null_migration/Simulated-Data-2019.csv"
+        },
+        'output': 'calculation_scripts/data/null_model/migraion_meeting.pkl',
+        'name': 'Migration Meeting'
+    },
+    'migration_gravity': {
+        'files': {
+            14: "null_model/simulation_results/data_null_gravity/Census-Data-2014.csv",
+            19: "null_model/simulation_results/data_null_gravity/Simulated-Data-2019.csv"
+        },
+        'output': 'calculation_scripts/data/null_model/migration_gravity.pkl',
+        'name': 'Gravity Migration Null Model (complete graph)'
     }
 }
 
@@ -92,6 +108,10 @@ elif 'swapping_percentile_80' in sys.argv:
     MODEL_TYPE = 'swapping_percentile_80'
 elif 'migration_check' in sys.argv:
     MODEL_TYPE = 'migration_check'
+elif 'migration_meeting' in sys.argv:
+    MODEL_TYPE = 'migration_meeting'
+elif 'migration_gravity' in sys.argv:
+    MODEL_TYPE = 'migration_gravity'
 else:
     MODEL_TYPE = 'migration'
 
