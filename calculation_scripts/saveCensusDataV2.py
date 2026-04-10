@@ -357,12 +357,19 @@ def genAggregatedDFs(aggs,data_to_aggregate, input_level, variables, year, commu
         missing_community_mask = df_blockgroup['community'].isna()
         if missing_community_mask.any():
             print(f"  Found {missing_community_mask.sum()} block groups without a community assignment. Filling with county name.")
-            # Map the county FIPS code to the county name for the missing rows
-            fill_values = df_blockgroup.loc[missing_community_mask, 'county'].map(COUNTY_FIPS_TO_NAME_MAP)
-            # Assign the mapped county names to the 'community' column
+            # county column is still 3-digit here; COUNTY_FIPS_TO_NAME_MAP has 5-digit keys,
+            # so build the composite key for the lookup.
+            composite_county = (df_blockgroup.loc[missing_community_mask, 'state'].astype(str).str.strip()
+                                + df_blockgroup.loc[missing_community_mask, 'county'].astype(str).str.strip().str.zfill(3))
+            fill_values = composite_county.map(COUNTY_FIPS_TO_NAME_MAP)
             df_blockgroup.loc[missing_community_mask, 'community'] = fill_values
-            # Uppercase for consistency
-            df_blockgroup['community'] = df_blockgroup['community'].str.upper()
+            # Uppercase and append county suffix to match normal community name format (e.g. 'COOK_031')
+            filled_mask = df_blockgroup['community'].notna() & missing_community_mask
+            df_blockgroup.loc[filled_mask, 'community'] = (
+                df_blockgroup.loc[filled_mask, 'community'].str.upper()
+                + '_'
+                + df_blockgroup.loc[filled_mask, 'county'].astype(str).str.strip().str.zfill(3)
+            )
         # -------------------------------------------------------------------------
 
 
