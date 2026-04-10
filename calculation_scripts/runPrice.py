@@ -56,7 +56,7 @@ def _recursively_calculate_avg_log_income(incomes_data):
     CHILD_PARENT_LINK = {
         'bg': ('tr', 'temp_tract_id'),
         'tr': ('cm', 'community'),
-        'cm': ('ct', 'county'),
+        'cm': ('ct', 'county'),   # 'county' on cm rows is 5-digit state+county FIPS
         'ct': ('st', 'state'),
     }
     for yr in sorted(incomes_data.keys()):
@@ -70,7 +70,19 @@ def _recursively_calculate_avg_log_income(incomes_data):
                 continue
             df_child = df_child.copy()
             df_child['_wt'] = df_child['population'] * df_child['AvgLogInc']
-            grouped = df_child.groupby(link_col).agg(
+
+            # For cm→ct: the ct index is the composite state+county FIPS (e.g. '17031'),
+            # but the 'county' column on cm rows may be 3-digit if the pkl was produced
+            # before the FIPS-normalisation fix.  Build the composite key explicitly so
+            # the groupby key always matches the ct index regardless of pkl vintage.
+            if child_level == 'cm' and 'state' in df_child.columns and 'county' in df_child.columns:
+                df_child['_link'] = (df_child['state'].astype(str).str.strip()
+                                     + df_child['county'].astype(str).str.strip().str.zfill(3))
+                actual_link_col = '_link'
+            else:
+                actual_link_col = link_col
+
+            grouped = df_child.groupby(actual_link_col).agg(
                 _pop=('population', 'sum'),
                 _wt=('_wt', 'sum'),
             )
@@ -174,6 +186,17 @@ def build_level_panel(incomes_data, level, initial_year, final_year):
                      ('community', 'ParentCommunity')]:
         if src in df_y.columns:
             df_out[dst] = df_y.loc[common_idx, src].values
+
+    # Ensure ParentCounty is the 5-digit composite state+county FIPS so it
+    # matches the 'ct' level UnitName regardless of pkl vintage.
+    if 'ParentCounty' in df_out.columns and 'ParentState' in df_out.columns:
+        county_vals = df_out['ParentCounty'].astype(str).str.strip()
+        state_vals  = df_out['ParentState'].astype(str).str.strip()
+        # Only prepend state if county is not already 5 digits
+        needs_prefix = county_vals.str.len() < 5
+        df_out.loc[needs_prefix, 'ParentCounty'] = (
+            state_vals[needs_prefix] + county_vals[needs_prefix].str.zfill(3)
+        )
 
     # ParentTract for block groups: first 11 chars of the FIPS index
     if level == 'bg':
