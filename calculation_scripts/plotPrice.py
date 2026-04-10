@@ -461,8 +461,8 @@ def _prepare_normalized_heatmap_data(decomposition_data_at_base_level, base_leve
 
         overall_growth_rate = np.nan
         if p_level: # Ensure p_level was determined
-            if path_suffix == '_gro':
-                effective_growth_col_norm = f'EffectiveGrowth_{p_level}_gro'
+            if path_suffix == '_pop':
+                effective_growth_col_norm = f'EffectiveGrowth_{p_level}_pop'
                 avgg_col_norm = f'AvgG_{p_level}' 
                 if effective_growth_col_norm in unit_specific_row.columns and pd.notna(unit_specific_row[effective_growth_col_norm].iloc[0]) and unit_specific_row[effective_growth_col_norm].iloc[0] != 0:
                     overall_growth_rate = unit_specific_row[effective_growth_col_norm].iloc[0]
@@ -531,18 +531,18 @@ def plot_variation_data(decomposition_data_at_base_level,hierarchy_levels_list,b
             except ValueError: pass
             if child_level_idx_gro >=0:
                 child_level_gro = hierarchy_levels_list[child_level_idx_gro]
-                own_sel_col_gro = f"Sel_{agg_level_col}_from_{child_level_gro}_gro"
+                own_sel_col_gro = f"Sel_{agg_level_col}_from_{child_level_gro}_pop"
                 if own_sel_col_gro in unit_row and pd.notna(unit_row[own_sel_col_gro]):
                     sel_terms_gro_for_unit.append(unit_row[own_sel_col_gro])
             # Transmitted selection
             for col_name in unit_row.index:
-                if col_name.startswith("Transmitted_Sel_") and col_name.endswith(f"_to_{agg_level_col}_gro"):
+                if col_name.startswith("Transmitted_Sel_") and col_name.endswith(f"_to_{agg_level_col}_pop"):
                     if pd.notna(unit_row[col_name]):
                         sel_terms_gro_for_unit.append(unit_row[col_name])
             
             # Normalizer for _gro path
             normalizer_gro = np.nan
-            eff_growth_col = f"EffectiveGrowth_{agg_level_col}_gro"
+            eff_growth_col = f"EffectiveGrowth_{agg_level_col}_pop"
             avg_g_col = f"AvgG_{agg_level_col}"
             if eff_growth_col in unit_row and pd.notna(unit_row[eff_growth_col]) and unit_row[eff_growth_col] != 0:
                 normalizer_gro = unit_row[eff_growth_col]
@@ -828,9 +828,9 @@ def plot_aggregated_variation_summary_heatmap(decomposition_data_at_base_level, 
     # Map the heatmap cells to the specific column names in the results DataFrame
     # (Row, Column) -> (Column Name in DataFrame, Path Suffix)
     cell_to_col_map = {
-        ('Cumulative population variation', 'tracts'): f'Transmitted_Sel_tr_to_ct_gro_Ratio',
-        ('Cumulative population variation', 'community areas'): f'Transmitted_Sel_cm_to_ct_gro_Ratio',
-        ('Cumulative population variation', 'county'): f'Sel_ct_from_cm_gro_Ratio',
+        ('Cumulative population variation', 'tracts'): f'Transmitted_Sel_tr_to_ct_pop_Ratio',
+        ('Cumulative population variation', 'community areas'): f'Transmitted_Sel_cm_to_ct_pop_Ratio',
+        ('Cumulative population variation', 'county'): f'Sel_ct_from_cm_pop_Ratio',
         
         ('Cumulative income variation', 'tracts'): f'Transmitted_Sel_tr_to_ct_inc_Ratio',
         ('Cumulative income variation', 'community areas'): f'Transmitted_Sel_cm_to_ct_inc_Ratio',
@@ -950,7 +950,7 @@ def _generate_plots_for_dataset(decomposition_data_subset, output_plot_dir_name)
 
             # --- Prepare data and shared norm for focused heatmaps ---
             normalized_data_gro, found_gro, y_labels_gro, x_origins_gro = _prepare_normalized_heatmap_data(
-                levels_data, base_level_name, '_gro', 
+                levels_data, base_level_name, '_pop',
                 SPECIFIC_COMMUNITY_NAMES_FOR_HEATMAP, FIPS_TO_NAME_MAP, HIERARCHY_LEVELS
             )
             normalized_data_inc, found_inc, y_labels_inc, x_origins_inc = _prepare_normalized_heatmap_data(
@@ -1019,7 +1019,7 @@ def _generate_plots_for_dataset(decomposition_data_subset, output_plot_dir_name)
                 
                 # For _gro path plots / Population Price Eqn LHS
                 avg_g_col_pop_path = f'AvgG_pop_{agg_level_name}' 
-                trans_direct_child_growth_col_gro = f'TransmissionDirectChildGrowth_{agg_level_name}_gro' 
+                trans_direct_child_growth_col_gro = f'TransmissionDirectChildGrowth_{agg_level_name}_pop'
                 rel_avg_g_col_pop_path = f'AvgG_pop_{agg_level_name}' # Pre-calculated in new PKL
                 
                  # For _inc path plots / Population Price Eqn LHS
@@ -1033,7 +1033,7 @@ def _generate_plots_for_dataset(decomposition_data_subset, output_plot_dir_name)
                 rel_agg_g_col = f'RelAvgG_emp_{agg_level_name}' # Pre-calculated in new PKL
 
                 # Columns for retained relative plots (still needed for X and Color)
-                cum_sel_gro_col = 'cum_sel_gro_Ratio'
+                cum_sel_gro_col = 'cum_sel_pop_Ratio'
                 cum_sel_inc_col = 'cum_sel_inc_Ratio'
                 # RelLogAvgIncInitial is calculated on the fly in plotPrice.py
                 rel_log_avg_inc_initial_col = f'RelLogAvgIncInitial_{agg_level_name}' 
@@ -1277,7 +1277,7 @@ def _generate_plots_for_dataset(decomposition_data_subset, output_plot_dir_name)
                 # Plot 5: Community Selection (Population Decomposition) vs. Community-Parent Growth Rate Difference (Population Path)
                 # X-axis: Sel_cm_from_tr_gro (community selection by population decomposition)
                 # Y-axis: AvgG_pop_cm - AvgG_pop_ct (community minus parent population-averaged growth rate)
-                sel_cm_pop_col = f'Sel_cm_from_tr_gro'
+                sel_cm_pop_col = f'Sel_cm_from_tr_pop'
                 avg_g_pop_cm_col = f'AvgG_pop_cm'
                 
                 if (sel_cm_pop_col in df_level.columns and 
@@ -1509,7 +1509,7 @@ def plot_selection_term_scatters(levels_data, base_level_name, output_plot_dir_n
                 continue
 
             x_col_name = f"{col_stem}_inc"
-            y_col_name = f"{col_stem}_gro"
+            y_col_name = f"{col_stem}_pop"
 
             if x_col_name not in df_p_target.columns or y_col_name not in df_p_target.columns:
                 # print(f"    Skipping scatter for P_target={p_target_level}, S_origin={s_origin_level}: Columns {x_col_name} or {y_col_name} not found.")

@@ -753,7 +753,7 @@ def calculate_multilevel_price_decomposition(prepared_level_data, base_level,
         df_lvl = _calculate_de_meaned_column(df_lvl, f'AvgG_pop_{level_name}', f'RelAvgG_pop_{level_name}')
         df_lvl = _calculate_de_meaned_column(df_lvl, f'AvgG_inc_{level_name}', f'RelAvgG_inc_{level_name}')
 
-        for path in ['_gro', '_inc']:
+        for path in ['_pop', '_inc']:
             cum_col = f'cum_sel{path}'
             df_lvl[cum_col] = 0.0
             try:

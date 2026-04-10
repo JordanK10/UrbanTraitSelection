@@ -537,10 +537,10 @@ def genAggregatedDFs(aggs,data_to_aggregate, input_level, variables, year, commu
     # Normalize county to 5-digit FIPS (state+county) uniformly across all returned levels.
     # All internal joins above used the original 3-digit county; this conversion happens last
     # so that BG, TR, and CM carry the same county format as the CT index ('17031').
-    for df in [df_blockgroup, df_tract, df_community]:
+    for df in [df_blockgroup, df_tract, df_community, df_county]:
         if df is not None and 'county' in df.columns and 'state' in df.columns:
             df['county'] = df['state'].astype(str).str.strip() + df['county'].astype(str).str.strip().str.zfill(3)
-    print(f"  genAggregatedDFs ({year}): Normalized county to 5-digit FIPS across bg, tr, cm levels.")
+    print(f"  genAggregatedDFs ({year}): Normalized county to 5-digit FIPS across bg, tr, cm, ct levels.")
 
     # Return the results in the standard order
     # Note: df_blockgroup will be None if input_level was 'tr'
