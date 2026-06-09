@@ -31,10 +31,15 @@ from procHelpers import (
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+# ── Paths ─────────────────────────────────────────────────────────────────────
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT_DIR   = os.path.dirname(_SCRIPT_DIR)
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-INPUT_DATA_PATH      = "data/census_data1.pkl"
-OUTPUT_DIR           = "output_terms"
+INPUT_DATA_PATH      = os.path.join(_SCRIPT_DIR, "data", "census_data1.pkl")
+OUTPUT_DIR           = os.path.join(_ROOT_DIR, "output_terms")
 TARGET_N             = 5
 INITIAL_YEAR         = 14
 FINAL_YEAR           = INITIAL_YEAR + TARGET_N   # 19

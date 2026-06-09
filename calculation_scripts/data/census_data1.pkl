@@ -1,0 +1,1 @@
+/Users/kempj/Documents/UrbanTraitSelection/data/census_data1.pkl

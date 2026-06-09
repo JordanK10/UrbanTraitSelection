@@ -23,8 +23,12 @@ plt.rcParams['axes.unicode_minus'] = False # Ensure minus signs render correctly
 custom_purple = '#633673'
 custom_orange = '#E77429'
 
+# --- Paths ---
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT_DIR   = os.path.dirname(_SCRIPT_DIR)
+
 # --- Configuration ---
-RESULTS_PICKLE_FILEPATH = "output_terms/all_decomposition_results.pkl"
+RESULTS_PICKLE_FILEPATH = os.path.join(_ROOT_DIR, "output_terms", "all_decomposition_results.pkl")
 # OUTPUT_PLOT_DIR is now set per run
 # Define HIERARCHY_LEVELS here as it's used in multiple places
 HIERARCHY_LEVELS = ['bg', 'tr', 'cm', 'ct', 'st']
@@ -1572,7 +1576,7 @@ def main():
 
     # Run 1: Full dataset
     print("\n>>> Processing: Full Dataset")
-    _generate_plots_for_dataset(full_decomposition_data, "output_plots")
+    _generate_plots_for_dataset(full_decomposition_data, os.path.join(_ROOT_DIR, "output_plots"))
 
     # Run 2: Cook County only
     print("\n>>> Processing: Cook County (031) Only")
@@ -1591,7 +1595,7 @@ def main():
     if is_cook_data_substantially_empty:
         print("  Cook County data appears to be empty or invalid after filtering. Skipping Cook County plot generation.")
     else:
-        _generate_plots_for_dataset(cook_county_data, "output_plots_cook")
+        _generate_plots_for_dataset(cook_county_data, os.path.join(_ROOT_DIR, "output_plots_cook"))
 
     print("\n--- plotPrice.py finished all processing ---")
 
