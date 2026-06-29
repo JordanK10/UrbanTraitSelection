@@ -2,11 +2,11 @@
 """
 gini_inequality_scatter.py
 
-Creates a scatter plot of cumulative income PNC_st vs change in Gini coefficient.
+Creates a scatter plot of cumulative income NS_st vs change in Gini coefficient.
 The Gini coefficient is calculated from block group income data grouped by communities,
 comparing initial vs final time periods.
 
-X-axis: Cumulative Income PNC_st (from community data)
+X-axis: Cumulative Income NS_st (from community data)
 Y-axis: Change in Gini coefficient (final_gini - initial_gini) for each community
 Color: Population growth rate for visual distinction
 """
@@ -22,6 +22,7 @@ from scipy import stats
 from scipy.stats import t
 import statsmodels.api as sm
 import seaborn as sns
+plt.rcParams.update({'text.usetex': True, 'font.family': 'serif', 'font.serif': ['Computer Modern Roman']})
 warnings.filterwarnings('ignore')
 
 # Check for 'null' argument to switch directories
@@ -42,7 +43,7 @@ orange_dot = '#f2b58c'
 def load_data(input_dir):
     """Load community, block group, and tract data"""
     try:
-        # Load community data for cumulative PNC_st and population growth
+        # Load community data for cumulative NS_st and population growth
         cm_data = pd.read_csv(os.path.join(input_dir, "bg_cm_exported_terms.csv"))
         print(f"Successfully loaded community data: {len(cm_data)} rows")
         
@@ -336,45 +337,45 @@ def prepare_bg_income_data_by_tract(bg_data):
     print(f"Prepared {len(result)} block group records for Gini calculation (grouped by tract)")
     return result
 
-def extract_cumulative_income_pnc(cm_data):
-    """Extract cumulative income PNC_st from community data"""
-    print("Extracting cumulative income PNC_st...")
+def extract_cumulative_income_ns(cm_data):
+    """Extract cumulative income NS_st from community data"""
+    print("Extracting cumulative income NS_st...")
     
-    # Look for the PNC income columns
-    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_PNC_st'
-    selection_col = 'Sel_cm_from_tr_inc_PNC_st'
+    # Look for the NS income columns
+    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_ns_st'
+    selection_col = 'Sel_cm_from_tr_inc_ns_st'
     
     if transmitted_col not in cm_data.columns or selection_col not in cm_data.columns:
-        print(f"Warning: Expected PNC columns not found. Available columns: {cm_data.columns.tolist()}")
+        print(f"Warning: Expected NS columns not found. Available columns: {cm_data.columns.tolist()}")
         return None
     
-    # Calculate cumulative PNC_st (transmitted + selection)
+    # Calculate cumulative NS_st (transmitted + selection)
     transmitted_vals = cm_data[transmitted_col].fillna(0)
     selection_vals = cm_data[selection_col].fillna(0)
     
-    cumulative_pnc = transmitted_vals + selection_vals
+    cumulative_ns = transmitted_vals + selection_vals
     
-    print(f"Cumulative income PNC_st statistics:")
-    print(f"  Mean: {cumulative_pnc.mean():.4f}")
-    print(f"  Std: {cumulative_pnc.std():.4f}")
-    print(f"  Min: {cumulative_pnc.min():.4f}")
-    print(f"  Max: {cumulative_pnc.max():.4f}")
+    print(f"Cumulative income NS_st statistics:")
+    print(f"  Mean: {cumulative_ns.mean():.4f}")
+    print(f"  Std: {cumulative_ns.std():.4f}")
+    print(f"  Min: {cumulative_ns.min():.4f}")
+    print(f"  Max: {cumulative_ns.max():.4f}")
     
-    return cumulative_pnc
+    return cumulative_ns
 
-def extract_transmitted_income_pnc(cm_data):
-    """Extract transmitted income PNC_st from community data"""
-    print("Extracting transmitted income PNC_st...")
+def extract_transmitted_income_ns(cm_data):
+    """Extract transmitted income NS_st from community data"""
+    print("Extracting transmitted income NS_st...")
     
-    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_PNC_st'
+    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_ns_st'
     
     if transmitted_col not in cm_data.columns:
-        print(f"Warning: Expected PNC column not found: {transmitted_col}. Available columns: {cm_data.columns.tolist()}")
+        print(f"Warning: Expected NS column not found: {transmitted_col}. Available columns: {cm_data.columns.tolist()}")
         return None
     
     transmitted_vals = cm_data[transmitted_col].fillna(0)
     
-    print(f"Transmitted income PNC_st statistics:")
+    print(f"Transmitted income NS_st statistics:")
     print(f"  Mean: {transmitted_vals.mean():.4f}")
     print(f"  Std: {transmitted_vals.std():.4f}")
     print(f"  Min: {transmitted_vals.min():.4f}")
@@ -382,19 +383,19 @@ def extract_transmitted_income_pnc(cm_data):
     
     return transmitted_vals
 
-def extract_selection_income_pnc(cm_data):
-    """Extract selection income PNC_st from community data"""
-    print("Extracting selection income PNC_st...")
+def extract_selection_income_ns(cm_data):
+    """Extract selection income NS_st from community data"""
+    print("Extracting selection income NS_st...")
     
-    selection_col = 'Sel_cm_from_tr_inc_PNC_st'
+    selection_col = 'Sel_cm_from_tr_inc_ns_st'
     
     if selection_col not in cm_data.columns:
-        print(f"Warning: Expected PNC column not found: {selection_col}. Available columns: {cm_data.columns.tolist()}")
+        print(f"Warning: Expected NS column not found: {selection_col}. Available columns: {cm_data.columns.tolist()}")
         return None
 
     selection_vals = cm_data[selection_col].fillna(0)
     
-    print(f"Selection income PNC_st statistics:")
+    print(f"Selection income NS_st statistics:")
     print(f"  Mean: {selection_vals.mean():.4f}")
     print(f"  Std: {selection_vals.std():.4f}")
     print(f"  Min: {selection_vals.min():.4f}")
@@ -642,10 +643,10 @@ def run_analysis(input_dir, base_output_dir):
         print("Warning: Could not create merged tract-level data for new plot.")
 
 
-    # Extract PNC components from the fully merged and aligned community data
-    all_cm_data['cumulative_income_pnc'] = extract_cumulative_income_pnc(all_cm_data)/100
-    all_cm_data['transmitted_income_pnc'] = extract_transmitted_income_pnc(all_cm_data)/100
-    all_cm_data['selection_income_pnc'] = extract_selection_income_pnc(all_cm_data)/100
+    # Extract NS components from the fully merged and aligned community data
+    all_cm_data['cumulative_income_ns'] = extract_cumulative_income_ns(all_cm_data)/100
+    all_cm_data['transmitted_income_ns'] = extract_transmitted_income_ns(all_cm_data)/100
+    all_cm_data['selection_income_ns'] = extract_selection_income_ns(all_cm_data)/100
 
     # Define plot configurations
     output_dir = os.path.join(base_output_dir, "gini_scatter_plots")
@@ -661,15 +662,15 @@ def run_analysis(input_dir, base_output_dir):
     plot_configs = [
         {
             'data': all_cm_data,
-            'x': 'cumulative_income_pnc',
+            'x': 'cumulative_income_ns',
             'y': 'gini_change_bg',
-            'title': 'Cumulative PNC vs. Block Group Gini Change',
-            'xlabel': 'Cumulative Income PNC (Community)',
+            'title': 'Cumulative NS vs. Block Group Gini Change',
+            'xlabel': 'Cumulative Income NS (Community)',
             'ylabel': 'Change in Block Group Gini Coefficient',
             'color': 'bifurcate_col_cm',
             'color_label': 'Initial Income vs. Median',
-            'output': os.path.join(output_dir, 'cumulative_pnc_vs_bg_gini.pdf'),
-            'filter_col': 'cumulative_income_pnc',
+            'output': os.path.join(output_dir, 'cumulative_ns_vs_bg_gini.pdf'),
+            'filter_col': 'cumulative_income_ns',
             'filter_threshold': -500,
             'bifurcate_on_color': True,
             'size_col': size_col_cm,
@@ -678,15 +679,15 @@ def run_analysis(input_dir, base_output_dir):
         },
         {
             'data': all_cm_data,
-            'x': 'cumulative_income_pnc',
+            'x': 'cumulative_income_ns',
             'y': 'gini_change_tr',
-            'title': 'Cumulative PNC vs. Tract Gini Change',
-            'xlabel': 'Cumulative Income PNC (Community)',
+            'title': 'Cumulative NS vs. Tract Gini Change',
+            'xlabel': 'Cumulative Income NS (Community)',
             'ylabel': 'Change in Tract Gini Coefficient',
             'color': 'bifurcate_col_cm',
             'color_label': 'Initial Income vs. Median',
-            'output': os.path.join(output_dir, 'cumulative_pnc_vs_tr_gini.pdf'),
-            'filter_col': 'cumulative_income_pnc',
+            'output': os.path.join(output_dir, 'cumulative_ns_vs_tr_gini.pdf'),
+            'filter_col': 'cumulative_income_ns',
             'filter_threshold': -500,
             'bifurcate_on_color': True,
             'size_col': size_col_cm,
@@ -695,15 +696,15 @@ def run_analysis(input_dir, base_output_dir):
         },
         {
             'data': all_cm_data,
-            'x': 'transmitted_income_pnc',
+            'x': 'transmitted_income_ns',
             'y': 'gini_change_bg',
-            'title': 'Transmitted PNC vs. Block Group Gini Change',
-            'xlabel': 'Transmitted Income PNC (Community)',
+            'title': 'Transmitted NS vs. Block Group Gini Change',
+            'xlabel': 'Transmitted Income NS (Community)',
             'ylabel': 'Change in Block Group Gini Coefficient',
             'color': 'bifurcate_col_cm',
             'color_label': 'Initial Income vs. Median',
-            'output': os.path.join(output_dir, 'transmitted_pnc_vs_bg_gini.pdf'),
-            'filter_col': 'cumulative_income_pnc',
+            'output': os.path.join(output_dir, 'transmitted_ns_vs_bg_gini.pdf'),
+            'filter_col': 'cumulative_income_ns',
             'filter_threshold': -500,
             'bifurcate_on_color': True,
             'size_col': size_col_cm,
@@ -712,15 +713,15 @@ def run_analysis(input_dir, base_output_dir):
         },
         {
             'data': all_cm_data,
-            'x': 'selection_income_pnc',
+            'x': 'selection_income_ns',
             'y': 'gini_change_tr',
-            'title': 'Selection PNC vs. Tract Gini Change',
-            'xlabel': 'Selection Income PNC (Community)',
+            'title': 'Selection NS vs. Tract Gini Change',
+            'xlabel': 'Selection Income NS (Community)',
             'ylabel': 'Change in Tract Gini Coefficient',
             'color': 'bifurcate_col_cm',
             'color_label': 'Initial Income vs. Median',
-            'output': os.path.join(output_dir, 'selection_pnc_vs_tr_gini.pdf'),
-            'filter_col': 'cumulative_income_pnc',
+            'output': os.path.join(output_dir, 'selection_ns_vs_tr_gini.pdf'),
+            'filter_col': 'cumulative_income_ns',
             'filter_threshold': -500,
             'bifurcate_on_color': True,
             'size_col': size_col_cm,
@@ -760,22 +761,22 @@ def run_analysis(input_dir, base_output_dir):
         else:
             print(f"Warning: Skipping 'Tract Selection vs. Change in BG Gini' plot. Missing columns: '{selection_col_tr}' or 'gini_change_bg_by_tract'.")
 
-    # Plot 6: Tract Selection PNC vs. Change in BG Gini
-    selection_pnc_col_tr = 'Sel_tr_from_bg_inc_PNC_st'
-    if selection_pnc_col_tr in all_tr_data.columns and 'gini_change_bg_by_tract' in all_tr_data.columns:
-        # Prepare and scale the PNC column for consistency
-        all_tr_data['selection_pnc_st_tr'] = all_tr_data[selection_pnc_col_tr] / 100
+    # Plot 6: Tract Selection NS vs. Change in BG Gini
+    selection_ns_col_tr = 'Sel_tr_from_bg_inc_ns_st'
+    if selection_ns_col_tr in all_tr_data.columns and 'gini_change_bg_by_tract' in all_tr_data.columns:
+        # Prepare and scale the NS column for consistency
+        all_tr_data['selection_ns_st_tr'] = all_tr_data[selection_ns_col_tr] / 100
         
         plot_configs.append({
             'data': all_tr_data,
-            'x': 'selection_pnc_st_tr',
+            'x': 'selection_ns_st_tr',
             'y': 'gini_change_bg_by_tract',
-            'title': 'Tract Selection PNC vs. Change in BG Gini',
-            'xlabel': 'Selection PNC (Tract, from BGs, State-Normalized)',
+            'title': 'Tract Selection NS vs. Change in BG Gini',
+            'xlabel': 'Selection NS (Tract, from BGs, State-Normalized)',
             'ylabel': 'Change in Gini Coefficient (from BGs)',
             'color': 'bifurcate_col_tr',
             'color_label': 'Initial Income vs. Median',
-            'output': os.path.join(output_dir, 'tract_selection_pnc_vs_bg_gini.pdf'),
+            'output': os.path.join(output_dir, 'tract_selection_ns_vs_bg_gini.pdf'),
             'filter_col': None,
             'filter_threshold': None,
             'bifurcate_on_color': True,
@@ -784,7 +785,7 @@ def run_analysis(input_dir, base_output_dir):
             'xlim': None
         })
     else:
-        print(f"Warning: Skipping 'Tract Selection PNC vs. Change in BG Gini' plot. Missing columns: '{selection_pnc_col_tr}' or 'gini_change_bg_by_tract'.")
+        print(f"Warning: Skipping 'Tract Selection NS vs. Change in BG Gini' plot. Missing columns: '{selection_ns_col_tr}' or 'gini_change_bg_by_tract'.")
 
     # --- NEW: Report population-weighted average Gini changes ---
     print("\n--- Population-Weighted Average Gini Change Summary ---")
@@ -857,45 +858,45 @@ def get_grouped_income_data(bg_income_data, group_by_col):
     print(f"Prepared {len(result)} block group records for Gini calculation (grouped by tract)")
     return result
 
-def extract_cumulative_income_pnc(cm_data):
-    """Extract cumulative income PNC_st from community data"""
-    print("Extracting cumulative income PNC_st...")
+def extract_cumulative_income_ns(cm_data):
+    """Extract cumulative income NS_st from community data"""
+    print("Extracting cumulative income NS_st...")
     
-    # Look for the PNC income columns
-    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_PNC_st'
-    selection_col = 'Sel_cm_from_tr_inc_PNC_st'
+    # Look for the NS income columns
+    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_ns_st'
+    selection_col = 'Sel_cm_from_tr_inc_ns_st'
     
     if transmitted_col not in cm_data.columns or selection_col not in cm_data.columns:
-        print(f"Warning: Expected PNC columns not found. Available columns: {cm_data.columns.tolist()}")
+        print(f"Warning: Expected NS columns not found. Available columns: {cm_data.columns.tolist()}")
         return None
     
-    # Calculate cumulative PNC_st (transmitted + selection)
+    # Calculate cumulative NS_st (transmitted + selection)
     transmitted_vals = cm_data[transmitted_col].fillna(0)
     selection_vals = cm_data[selection_col].fillna(0)
     
-    cumulative_pnc = transmitted_vals + selection_vals
+    cumulative_ns = transmitted_vals + selection_vals
     
-    print(f"Cumulative income PNC_st statistics:")
-    print(f"  Mean: {cumulative_pnc.mean():.4f}")
-    print(f"  Std: {cumulative_pnc.std():.4f}")
-    print(f"  Min: {cumulative_pnc.min():.4f}")
-    print(f"  Max: {cumulative_pnc.max():.4f}")
+    print(f"Cumulative income NS_st statistics:")
+    print(f"  Mean: {cumulative_ns.mean():.4f}")
+    print(f"  Std: {cumulative_ns.std():.4f}")
+    print(f"  Min: {cumulative_ns.min():.4f}")
+    print(f"  Max: {cumulative_ns.max():.4f}")
     
-    return cumulative_pnc
+    return cumulative_ns
 
-def extract_transmitted_income_pnc(cm_data):
-    """Extract transmitted income PNC_st from community data"""
-    print("Extracting transmitted income PNC_st...")
+def extract_transmitted_income_ns(cm_data):
+    """Extract transmitted income NS_st from community data"""
+    print("Extracting transmitted income NS_st...")
     
-    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_PNC_st'
+    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_ns_st'
     
     if transmitted_col not in cm_data.columns:
-        print(f"Warning: Expected PNC column not found: {transmitted_col}. Available columns: {cm_data.columns.tolist()}")
+        print(f"Warning: Expected NS column not found: {transmitted_col}. Available columns: {cm_data.columns.tolist()}")
         return None
     
     transmitted_vals = cm_data[transmitted_col].fillna(0)
     
-    print(f"Transmitted income PNC_st statistics:")
+    print(f"Transmitted income NS_st statistics:")
     print(f"  Mean: {transmitted_vals.mean():.4f}")
     print(f"  Std: {transmitted_vals.std():.4f}")
     print(f"  Min: {transmitted_vals.min():.4f}")
@@ -903,19 +904,19 @@ def extract_transmitted_income_pnc(cm_data):
     
     return transmitted_vals
 
-def extract_selection_income_pnc(cm_data):
-    """Extract selection income PNC_st from community data"""
-    print("Extracting selection income PNC_st...")
+def extract_selection_income_ns(cm_data):
+    """Extract selection income NS_st from community data"""
+    print("Extracting selection income NS_st...")
     
-    selection_col = 'Sel_cm_from_tr_inc_PNC_st'
+    selection_col = 'Sel_cm_from_tr_inc_ns_st'
     
     if selection_col not in cm_data.columns:
-        print(f"Warning: Expected PNC column not found: {selection_col}. Available columns: {cm_data.columns.tolist()}")
+        print(f"Warning: Expected NS column not found: {selection_col}. Available columns: {cm_data.columns.tolist()}")
         return None
 
     selection_vals = cm_data[selection_col].fillna(0)
     
-    print(f"Selection income PNC_st statistics:")
+    print(f"Selection income NS_st statistics:")
     print(f"  Mean: {selection_vals.mean():.4f}")
     print(f"  Std: {selection_vals.std():.4f}")
     print(f"  Min: {selection_vals.min():.4f}")

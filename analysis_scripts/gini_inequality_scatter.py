@@ -2,11 +2,11 @@
 """
 gini_inequality_scatter.py
 
-Creates a scatter plot of cumulative income PNC_st vs change in Gini coefficient.
+Creates a scatter plot of cumulative income NS_st vs change in Gini coefficient.
 The Gini coefficient is calculated from block group income data grouped by communities,
 comparing initial vs final time periods.
 
-X-axis: Cumulative Income PNC_st (from community data)
+X-axis: Cumulative Income NS_st (from community data)
 Y-axis: Change in Gini coefficient (final_gini - initial_gini) for each community
 Color: Population growth rate for visual distinction
 """
@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+plt.rcParams.update({'text.usetex': True, 'font.family': 'serif', 'font.serif': ['Computer Modern Roman']})
 import os
 import warnings
 from scipy import stats
@@ -38,7 +39,7 @@ outline_color = '#3D3D3D'
 def load_data():
     """Load community, block group, and tract data"""
     try:
-        # Load community data for cumulative PNC_st and population growth
+        # Load community data for cumulative NS_st and population growth
         cm_data = pd.read_csv(os.path.join(INPUT_DIR, "bg_cm_exported_terms.csv"))
         print(f"Successfully loaded community data: {len(cm_data)} rows")
         
@@ -285,45 +286,45 @@ def calculate_community_gini_changes(bg_income_data):
     
     return result_df
 
-def extract_cumulative_income_pnc(cm_data):
-    """Extract cumulative income PNC_st from community data"""
-    print("Extracting cumulative income PNC_st...")
+def extract_cumulative_income_ns(cm_data):
+    """Extract cumulative income NS_st from community data"""
+    print("Extracting cumulative income NS_st...")
     
-    # Look for the PNC income columns
-    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_PNC_st'
-    selection_col = 'Sel_cm_from_tr_inc_PNC_st'
+    # Look for the NS income columns
+    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_ns_st'
+    selection_col = 'Sel_cm_from_tr_inc_ns_st'
     
     if transmitted_col not in cm_data.columns or selection_col not in cm_data.columns:
-        print(f"Warning: Expected PNC columns not found. Available columns: {cm_data.columns.tolist()}")
+        print(f"Warning: Expected NS columns not found. Available columns: {cm_data.columns.tolist()}")
         return None
     
-    # Calculate cumulative PNC_st (transmitted + selection)
+    # Calculate cumulative NS_st (transmitted + selection)
     transmitted_vals = cm_data[transmitted_col].fillna(0)
     selection_vals = cm_data[selection_col].fillna(0)
     
-    cumulative_pnc = transmitted_vals + selection_vals
+    cumulative_ns = transmitted_vals + selection_vals
     
-    print(f"Cumulative income PNC_st statistics:")
-    print(f"  Mean: {cumulative_pnc.mean():.4f}")
-    print(f"  Std: {cumulative_pnc.std():.4f}")
-    print(f"  Min: {cumulative_pnc.min():.4f}")
-    print(f"  Max: {cumulative_pnc.max():.4f}")
+    print(f"Cumulative income NS_st statistics:")
+    print(f"  Mean: {cumulative_ns.mean():.4f}")
+    print(f"  Std: {cumulative_ns.std():.4f}")
+    print(f"  Min: {cumulative_ns.min():.4f}")
+    print(f"  Max: {cumulative_ns.max():.4f}")
     
-    return cumulative_pnc
+    return cumulative_ns
 
-def extract_transmitted_income_pnc(cm_data):
-    """Extract transmitted income PNC_st from community data"""
-    print("Extracting transmitted income PNC_st...")
+def extract_transmitted_income_ns(cm_data):
+    """Extract transmitted income NS_st from community data"""
+    print("Extracting transmitted income NS_st...")
     
-    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_PNC_st'
+    transmitted_col = 'Transmitted_Sel_tr_to_cm_inc_ns_st'
     
     if transmitted_col not in cm_data.columns:
-        print(f"Warning: Expected PNC column not found: {transmitted_col}. Available columns: {cm_data.columns.tolist()}")
+        print(f"Warning: Expected NS column not found: {transmitted_col}. Available columns: {cm_data.columns.tolist()}")
         return None
     
     transmitted_vals = cm_data[transmitted_col].fillna(0)
     
-    print(f"Transmitted income PNC_st statistics:")
+    print(f"Transmitted income NS_st statistics:")
     print(f"  Mean: {transmitted_vals.mean():.4f}")
     print(f"  Std: {transmitted_vals.std():.4f}")
     print(f"  Min: {transmitted_vals.min():.4f}")
@@ -331,19 +332,19 @@ def extract_transmitted_income_pnc(cm_data):
     
     return transmitted_vals
 
-def extract_selection_income_pnc(cm_data):
-    """Extract selection income PNC_st from community data"""
-    print("Extracting selection income PNC_st...")
+def extract_selection_income_ns(cm_data):
+    """Extract selection income NS_st from community data"""
+    print("Extracting selection income NS_st...")
     
-    selection_col = 'Sel_cm_from_tr_inc_PNC_st'
+    selection_col = 'Sel_cm_from_tr_inc_ns_st'
     
     if selection_col not in cm_data.columns:
-        print(f"Warning: Expected PNC column not found: {selection_col}. Available columns: {cm_data.columns.tolist()}")
+        print(f"Warning: Expected NS column not found: {selection_col}. Available columns: {cm_data.columns.tolist()}")
         return None
 
     selection_vals = cm_data[selection_col].fillna(0)
     
-    print(f"Selection income PNC_st statistics:")
+    print(f"Selection income NS_st statistics:")
     print(f"  Mean: {selection_vals.mean():.4f}")
     print(f"  Std: {selection_vals.std():.4f}")
     print(f"  Min: {selection_vals.min():.4f}")
@@ -361,14 +362,14 @@ def create_custom_colormap():
 def create_gini_scatter_plot(merged_data):
     """Create the main scatter plot"""
     
-    # Filter out cumulative PNC_st values less than -100
-    filtered_data = merged_data[merged_data['cumulative_income_pnc'] >= -100].copy()
+    # Filter out cumulative NS_st values less than -100
+    filtered_data = merged_data[merged_data['cumulative_income_ns'] >= -100].copy()
     
     # Remove NaN and infinite values
-    valid_mask = (np.isfinite(filtered_data['cumulative_income_pnc']) & 
+    valid_mask = (np.isfinite(filtered_data['cumulative_income_ns']) & 
                   np.isfinite(filtered_data['gini_change']) & 
                   np.isfinite(filtered_data['color_variable']) &
-                  ~np.isnan(filtered_data['cumulative_income_pnc']) & 
+                  ~np.isnan(filtered_data['cumulative_income_ns']) & 
                   ~np.isnan(filtered_data['gini_change']) &
                   ~np.isnan(filtered_data['color_variable']))
     
@@ -377,18 +378,18 @@ def create_gini_scatter_plot(merged_data):
     print(f"\n{'='*60}")
     print(f"GINI INEQUALITY SCATTER PLOT")
     print(f"{'='*60}")
-    print(f"Valid data points (after filtering cumulative PNC_st >= -100): {len(clean_data)}")
+    print(f"Valid data points (after filtering cumulative NS_st >= -100): {len(clean_data)}")
     
     if len(clean_data) == 0:
         print("No valid data points to plot!")
         return
     
     # Print data statistics
-    print(f"X-axis (Cumulative Income PNC_st):")
-    print(f"  - Mean: {clean_data['cumulative_income_pnc'].mean():.6f}")
-    print(f"  - Std: {clean_data['cumulative_income_pnc'].std():.6f}")
-    print(f"  - Min: {clean_data['cumulative_income_pnc'].min():.6f}")
-    print(f"  - Max: {clean_data['cumulative_income_pnc'].max():.6f}")
+    print(f"X-axis (Cumulative Income NS_st):")
+    print(f"  - Mean: {clean_data['cumulative_income_ns'].mean():.6f}")
+    print(f"  - Std: {clean_data['cumulative_income_ns'].std():.6f}")
+    print(f"  - Min: {clean_data['cumulative_income_ns'].min():.6f}")
+    print(f"  - Max: {clean_data['cumulative_income_ns'].max():.6f}")
     
     print(f"Y-axis (Gini Change):")
     print(f"  - Mean: {clean_data['gini_change'].mean():.6f}")
@@ -403,12 +404,12 @@ def create_gini_scatter_plot(merged_data):
     print(f"  - Max: {clean_data['color_variable'].max():.6f}")
     
     # Calculate correlation
-    correlation = np.corrcoef(clean_data['cumulative_income_pnc'], clean_data['gini_change'])[0, 1]
+    correlation = np.corrcoef(clean_data['cumulative_income_ns'], clean_data['gini_change'])[0, 1]
     print(f"Correlation coefficient: {correlation:.6f}")
     
     # Perform linear regression
     slope, intercept, r_value, p_value, std_err = stats.linregress(
-        clean_data['cumulative_income_pnc'], clean_data['gini_change']
+        clean_data['cumulative_income_ns'], clean_data['gini_change']
     )
     r_squared = r_value**2
     
@@ -453,16 +454,16 @@ def create_gini_scatter_plot(merged_data):
     vmax = color_abs_max
     
     # Create scatter plot with color mapping
-    scatter = ax.scatter(clean_data['cumulative_income_pnc'], clean_data['gini_change'], 
+    scatter = ax.scatter(clean_data['cumulative_income_ns'], clean_data['gini_change'], 
                         c=clean_data['color_variable'], cmap=custom_cmap, 
                         alpha=0.8, s=50, edgecolors=outline_color, linewidth=0.8,
                         vmin=vmin, vmax=vmax)
     
     # Add regression line with 95% confidence interval
-    x_range = np.linspace(clean_data['cumulative_income_pnc'].min(), 
-                         clean_data['cumulative_income_pnc'].max(), 100)
+    x_range = np.linspace(clean_data['cumulative_income_ns'].min(), 
+                         clean_data['cumulative_income_ns'].max(), 100)
     y_pred, y_lower, y_upper = calculate_prediction_interval(
-        clean_data['cumulative_income_pnc'].values, 
+        clean_data['cumulative_income_ns'].values, 
         clean_data['gini_change'].values, 
         x_range
     )
@@ -488,7 +489,7 @@ def create_gini_scatter_plot(merged_data):
     ax.axvline(0, color='#3D3D3D', linestyle='-', linewidth=1, alpha=0.5)
     
     # Set labels
-    ax.set_xlabel('Cumulative Income PNC_st', fontsize=14, color='#333333')
+    ax.set_xlabel('Cumulative Income NS_st', fontsize=14, color='#333333')
     ax.set_ylabel('Change in Gini Coefficient', fontsize=14, color='#333333')
     
     # Style the plot
@@ -504,7 +505,7 @@ def create_gini_scatter_plot(merged_data):
     # Save plot
     plt.tight_layout()
     os.makedirs(os.path.join(BASE_OUTPUT_DIR, "inequality_scatter_plots"), exist_ok=True)
-    filename = os.path.join(BASE_OUTPUT_DIR, "inequality_scatter_plots/gini_change_vs_income_pnc.pdf")
+    filename = os.path.join(BASE_OUTPUT_DIR, "inequality_scatter_plots/gini_change_vs_income_ns.pdf")
     plt.savefig(filename, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     print(f"Saved: {filename}")
@@ -512,14 +513,14 @@ def create_gini_scatter_plot(merged_data):
 def create_gini_scatter_plot_tract(merged_data):
     """Create the tract-level Gini scatter plot"""
     
-    # Filter out cumulative PNC_st values less than -100
-    filtered_data = merged_data[merged_data['cumulative_income_pnc'] >= -100].copy()
+    # Filter out cumulative NS_st values less than -100
+    filtered_data = merged_data[merged_data['cumulative_income_ns'] >= -100].copy()
     
     # Remove NaN and infinite values
-    valid_mask = (np.isfinite(filtered_data['cumulative_income_pnc']) & 
+    valid_mask = (np.isfinite(filtered_data['cumulative_income_ns']) & 
                   np.isfinite(filtered_data['gini_change']) & 
                   np.isfinite(filtered_data['color_variable']) &
-                  ~np.isnan(filtered_data['cumulative_income_pnc']) & 
+                  ~np.isnan(filtered_data['cumulative_income_ns']) & 
                   ~np.isnan(filtered_data['gini_change']) &
                   ~np.isnan(filtered_data['color_variable']))
     
@@ -528,18 +529,18 @@ def create_gini_scatter_plot_tract(merged_data):
     print(f"\n{'='*60}")
     print(f"TRACT-LEVEL GINI INEQUALITY SCATTER PLOT")
     print(f"{'='*60}")
-    print(f"Valid data points (after filtering cumulative PNC_st >= -100): {len(clean_data)}")
+    print(f"Valid data points (after filtering cumulative NS_st >= -100): {len(clean_data)}")
     
     if len(clean_data) == 0:
         print("No valid data points to plot!")
         return
     
     # Print data statistics
-    print(f"X-axis (Cumulative Income PNC_st):")
-    print(f"  - Mean: {clean_data['cumulative_income_pnc'].mean():.6f}")
-    print(f"  - Std: {clean_data['cumulative_income_pnc'].std():.6f}")
-    print(f"  - Min: {clean_data['cumulative_income_pnc'].min():.6f}")
-    print(f"  - Max: {clean_data['cumulative_income_pnc'].max():.6f}")
+    print(f"X-axis (Cumulative Income NS_st):")
+    print(f"  - Mean: {clean_data['cumulative_income_ns'].mean():.6f}")
+    print(f"  - Std: {clean_data['cumulative_income_ns'].std():.6f}")
+    print(f"  - Min: {clean_data['cumulative_income_ns'].min():.6f}")
+    print(f"  - Max: {clean_data['cumulative_income_ns'].max():.6f}")
     
     print(f"Y-axis (Gini Change):")
     print(f"  - Mean: {clean_data['gini_change'].mean():.6f}")
@@ -554,12 +555,12 @@ def create_gini_scatter_plot_tract(merged_data):
     print(f"  - Max: {clean_data['color_variable'].max():.6f}")
     
     # Calculate correlation
-    correlation = np.corrcoef(clean_data['cumulative_income_pnc'], clean_data['gini_change'])[0, 1]
+    correlation = np.corrcoef(clean_data['cumulative_income_ns'], clean_data['gini_change'])[0, 1]
     print(f"Correlation coefficient: {correlation:.6f}")
     
     # Perform linear regression
     slope, intercept, r_value, p_value, std_err = stats.linregress(
-        clean_data['cumulative_income_pnc'], clean_data['gini_change']
+        clean_data['cumulative_income_ns'], clean_data['gini_change']
     )
     r_squared = r_value**2
     
@@ -604,16 +605,16 @@ def create_gini_scatter_plot_tract(merged_data):
     vmax = color_abs_max
     
     # Create scatter plot with color mapping
-    scatter = ax.scatter(clean_data['cumulative_income_pnc'], clean_data['gini_change'], 
+    scatter = ax.scatter(clean_data['cumulative_income_ns'], clean_data['gini_change'], 
                         c=clean_data['color_variable'], cmap=custom_cmap, 
                         alpha=0.8, s=50, edgecolors=outline_color, linewidth=0.8,
                         vmin=vmin, vmax=vmax)
     
     # Add regression line with 95% confidence interval
-    x_range = np.linspace(clean_data['cumulative_income_pnc'].min(), 
-                         clean_data['cumulative_income_pnc'].max(), 100)
+    x_range = np.linspace(clean_data['cumulative_income_ns'].min(), 
+                         clean_data['cumulative_income_ns'].max(), 100)
     y_pred, y_lower, y_upper = calculate_prediction_interval(
-        clean_data['cumulative_income_pnc'].values, 
+        clean_data['cumulative_income_ns'].values, 
         clean_data['gini_change'].values, 
         x_range
     )
@@ -639,7 +640,7 @@ def create_gini_scatter_plot_tract(merged_data):
     ax.axvline(0, color='#3D3D3D', linestyle='-', linewidth=1, alpha=0.5)
     
     # Set labels
-    ax.set_xlabel('Cumulative Income PNC_st', fontsize=14, color='#333333')
+    ax.set_xlabel('Cumulative Income NS_st', fontsize=14, color='#333333')
     ax.set_ylabel('Change in Gini Coefficient (Tract Level)', fontsize=14, color='#333333')
     
     # Style the plot
@@ -655,7 +656,7 @@ def create_gini_scatter_plot_tract(merged_data):
     # Save plot
     plt.tight_layout()
     os.makedirs(os.path.join(BASE_OUTPUT_DIR, "inequality_scatter_plots"), exist_ok=True)
-    filename = os.path.join(BASE_OUTPUT_DIR, "inequality_scatter_plots/gini_change_vs_income_pnc_tract.pdf")
+    filename = os.path.join(BASE_OUTPUT_DIR, "inequality_scatter_plots/gini_change_vs_income_ns_tract.pdf")
     plt.savefig(filename, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
     print(f"Saved: {filename}")
@@ -664,10 +665,10 @@ def create_transmitted_vs_bg_gini_scatter_plot(merged_data):
     """Create the Transmitted Selection vs Block Group Gini scatter plot"""
     
     # Remove NaN and infinite values
-    valid_mask = (np.isfinite(merged_data['transmitted_pnc']) & 
+    valid_mask = (np.isfinite(merged_data['transmitted_ns']) & 
                   np.isfinite(merged_data['gini_change']) & 
                   np.isfinite(merged_data['color_variable']) &
-                  ~np.isnan(merged_data['transmitted_pnc']) & 
+                  ~np.isnan(merged_data['transmitted_ns']) & 
                   ~np.isnan(merged_data['gini_change']) &
                   ~np.isnan(merged_data['color_variable']))
     
@@ -684,7 +685,7 @@ def create_transmitted_vs_bg_gini_scatter_plot(merged_data):
         
     # Perform linear regression
     slope, intercept, r_value, p_value, std_err = stats.linregress(
-        clean_data['transmitted_pnc'], clean_data['gini_change']
+        clean_data['transmitted_ns'], clean_data['gini_change']
     )
     r_squared = r_value**2
     
@@ -694,14 +695,14 @@ def create_transmitted_vs_bg_gini_scatter_plot(merged_data):
     ax.set_facecolor('white')
     
     # Create scatter plot
-    scatter = ax.scatter(clean_data['transmitted_pnc'], clean_data['gini_change'], 
+    scatter = ax.scatter(clean_data['transmitted_ns'], clean_data['gini_change'], 
                         c=clean_data['color_variable'], cmap=create_custom_colormap(), 
                         alpha=0.8, s=50, edgecolors=outline_color, linewidth=0.8,
                         vmin=-max(abs(clean_data['color_variable'].min()), abs(clean_data['color_variable'].max())), 
                         vmax=max(abs(clean_data['color_variable'].min()), abs(clean_data['color_variable'].max())))
 
     # Add regression line with 95% confidence interval
-    x_range = np.linspace(clean_data['transmitted_pnc'].min(), clean_data['transmitted_pnc'].max(), 100)
+    x_range = np.linspace(clean_data['transmitted_ns'].min(), clean_data['transmitted_ns'].max(), 100)
     y_pred = slope * x_range + intercept
     ax.plot(x_range, y_pred, color='#3D3D3D', linewidth=2, alpha=0.8, linestyle='-')
     
@@ -710,7 +711,7 @@ def create_transmitted_vs_bg_gini_scatter_plot(merged_data):
     ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=10,
             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
-    ax.set_xlabel('Transmitted Income PNC_st', fontsize=14, color='#333333')
+    ax.set_xlabel('Transmitted Income NS_st', fontsize=14, color='#333333')
     ax.set_ylabel('Change in Gini Coefficient (Block Group)', fontsize=14, color='#333333')
     
     plt.tight_layout()
@@ -722,10 +723,10 @@ def create_selection_vs_tr_gini_scatter_plot(merged_data):
     """Create the Selection vs Tract Gini scatter plot"""
     
     # Remove NaN and infinite values
-    valid_mask = (np.isfinite(merged_data['selection_pnc']) & 
+    valid_mask = (np.isfinite(merged_data['selection_ns']) & 
                   np.isfinite(merged_data['gini_change']) & 
                   np.isfinite(merged_data['color_variable']) &
-                  ~np.isnan(merged_data['selection_pnc']) & 
+                  ~np.isnan(merged_data['selection_ns']) & 
                   ~np.isnan(merged_data['gini_change']) &
                   ~np.isnan(merged_data['color_variable']))
     
@@ -742,7 +743,7 @@ def create_selection_vs_tr_gini_scatter_plot(merged_data):
         
     # Perform linear regression
     slope, intercept, r_value, p_value, std_err = stats.linregress(
-        clean_data['selection_pnc'], clean_data['gini_change']
+        clean_data['selection_ns'], clean_data['gini_change']
     )
     r_squared = r_value**2
     
@@ -752,14 +753,14 @@ def create_selection_vs_tr_gini_scatter_plot(merged_data):
     ax.set_facecolor('white')
     
     # Create scatter plot
-    scatter = ax.scatter(clean_data['selection_pnc'], clean_data['gini_change'], 
+    scatter = ax.scatter(clean_data['selection_ns'], clean_data['gini_change'], 
                         c=clean_data['color_variable'], cmap=create_custom_colormap(), 
                         alpha=0.8, s=50, edgecolors=outline_color, linewidth=0.8,
                         vmin=-max(abs(clean_data['color_variable'].min()), abs(clean_data['color_variable'].max())), 
                         vmax=max(abs(clean_data['color_variable'].min()), abs(clean_data['color_variable'].max())))
 
     # Add regression line with 95% confidence interval
-    x_range = np.linspace(clean_data['selection_pnc'].min(), clean_data['selection_pnc'].max(), 100)
+    x_range = np.linspace(clean_data['selection_ns'].min(), clean_data['selection_ns'].max(), 100)
     y_pred = slope * x_range + intercept
     ax.plot(x_range, y_pred, color='#3D3D3D', linewidth=2, alpha=0.8, linestyle='-')
     
@@ -768,7 +769,7 @@ def create_selection_vs_tr_gini_scatter_plot(merged_data):
     ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=10,
             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
             
-    ax.set_xlabel('Selection Income PNC_st', fontsize=14, color='#333333')
+    ax.set_xlabel('Selection Income NS_st', fontsize=14, color='#333333')
     ax.set_ylabel('Change in Gini Coefficient (Tract Level)', fontsize=14, color='#333333')
     
     plt.tight_layout()
@@ -786,10 +787,10 @@ if __name__ == "__main__":
         print("Error: Could not load required data files.")
         exit(1)
     
-    # Extract cumulative income PNC_st from community data (shared for both plots)
-    cumulative_income_pnc = extract_cumulative_income_pnc(cm_data)
-    if cumulative_income_pnc is None:
-        print("Error: Could not extract cumulative income PNC_st.")
+    # Extract cumulative income NS_st from community data (shared for both plots)
+    cumulative_income_ns = extract_cumulative_income_ns(cm_data)
+    if cumulative_income_ns is None:
+        print("Error: Could not extract cumulative income NS_st.")
         exit(1)
     
     # Get population growth for coloring (shared for both plots)
@@ -810,7 +811,7 @@ if __name__ == "__main__":
     if 'UnitName' in cm_data.columns:
         cm_plot_data = pd.DataFrame({
             'community': cm_data['UnitName'],
-            'cumulative_income_pnc': cumulative_income_pnc,
+            'cumulative_income_ns': cumulative_income_ns,
             'color_variable': color_variable
         })
     else:
@@ -880,9 +881,9 @@ if __name__ == "__main__":
     print("PROCESSING NEW PLOTS: TRANSMITTED vs BG GINI, SELECTION vs TR GINI")
     print("="*60)
 
-    # Filter cm_data based on original cumulative PNC condition
-    cm_data_filtered = cm_data[cumulative_income_pnc >= -100].copy()
-    print(f"Filtered community data to {len(cm_data_filtered)} rows based on cumulative_income_pnc >= -100")
+    # Filter cm_data based on original cumulative NS condition
+    cm_data_filtered = cm_data[cumulative_income_ns >= -100].copy()
+    print(f"Filtered community data to {len(cm_data_filtered)} rows based on cumulative_income_ns >= -100")
     
     # Re-calculate color variable for filtered data
     if pop_growth_col:
@@ -891,16 +892,16 @@ if __name__ == "__main__":
         color_variable_filtered = pd.Series(0, index=cm_data_filtered.index)
 
     # Extract transmitted and selection terms from filtered data
-    transmitted_pnc = extract_transmitted_income_pnc(cm_data_filtered)
-    selection_pnc = extract_selection_income_pnc(cm_data_filtered)
+    transmitted_ns = extract_transmitted_income_ns(cm_data_filtered)
+    selection_ns = extract_selection_income_ns(cm_data_filtered)
 
     # Note: Gini results for BG and TR are already calculated and can be reused.
 
     # PLOT 1: Transmitted vs BG Gini
-    if transmitted_pnc is not None and bg_gini_results is not None:
+    if transmitted_ns is not None and bg_gini_results is not None:
         cm_plot_data_transmitted = pd.DataFrame({
             'community': cm_data_filtered['UnitName'],
-            'transmitted_pnc': transmitted_pnc,
+            'transmitted_ns': transmitted_ns,
             'color_variable': color_variable_filtered
         })
         transmitted_merged_data = pd.merge(
@@ -913,10 +914,10 @@ if __name__ == "__main__":
         create_transmitted_vs_bg_gini_scatter_plot(transmitted_merged_data)
     
     # PLOT 2: Selection vs TR Gini
-    if selection_pnc is not None and tr_gini_results is not None:
+    if selection_ns is not None and tr_gini_results is not None:
         cm_plot_data_selection = pd.DataFrame({
             'community': cm_data_filtered['UnitName'],
-            'selection_pnc': selection_pnc,
+            'selection_ns': selection_ns,
             'color_variable': color_variable_filtered
         })
         selection_merged_data = pd.merge(
@@ -932,7 +933,7 @@ if __name__ == "__main__":
     print("GINI INEQUALITY SCATTER ANALYSIS COMPLETE")
     print("="*60)
     print("Generated plots:")
-    print("  - Block Group: plots/inequality_scatter_plots/gini_change_vs_income_pnc.pdf")
-    print("  - Tract Level: plots/inequality_scatter_plots/gini_change_vs_income_pnc_tract.pdf") 
+    print("  - Block Group: plots/inequality_scatter_plots/gini_change_vs_income_ns.pdf")
+    print("  - Tract Level: plots/inequality_scatter_plots/gini_change_vs_income_ns_tract.pdf") 
     print("  - Transmitted vs BG Gini: plots/inequality_scatter_plots/transmitted_vs_bg_gini.pdf")
     print("  - Selection vs TR Gini: plots/inequality_scatter_plots/selection_vs_tr_gini.pdf") 

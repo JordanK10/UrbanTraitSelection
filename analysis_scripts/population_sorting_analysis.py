@@ -3,6 +3,7 @@ import numpy as np
 import requests
 import matplotlib.pyplot as plt
 import seaborn as sns
+plt.rcParams.update({'text.usetex': True, 'font.family': 'serif', 'font.serif': ['Computer Modern Roman']})
 from scipy import stats
 import os
 import warnings
@@ -506,69 +507,69 @@ def main():
         print(f"  Merged {len(df_merged)} records.")
         
         # 4. Identify columns for plotting
-        # For selection, we use the state-normalized PNC of the level's own selection effect.
+        # For selection, we use the state-normalized NS of the level's own selection effect.
         if level == 'tract':
-            pop_pnc_col = 'Sel_tr_from_bg_pop_PNC_st'
+            pop_ns_col = 'Sel_tr_from_bg_pop_ns_st'
         else: # block group - This part is currently disabled
-            pop_pnc_col = 'Sel_bg_pop_PNC_st'
+            pop_ns_col = 'Sel_bg_pop_ns_st'
         
         size_col = f'PopInitial_{level_short}'
         color_col = f'LogAvgIncInitial_{level_short}'
         
         # Check for required columns for the rent plot
-        required_rent_cols = [pop_pnc_col, size_col, color_col]
+        required_rent_cols = [pop_ns_col, size_col, color_col]
         if not all(col in df_merged.columns for col in required_rent_cols):
             print(f"  Missing one of the required columns for rent plot: {required_rent_cols}. Skipping.")
         else:
-            # Plot 1: Population PNC vs. Change in Rent
+            # Plot 1: Population NS vs. Change in Rent
             create_scatter_plot(
                 data=df_merged,
-                x_col=pop_pnc_col,
+                x_col=pop_ns_col,
                 y_col='ChangeInRent',
                 size_col=size_col,
                 color_col=color_col,
                 title=f'{level.title()} Level: Population Selection vs. Change in Median Rent',
-                xlabel='Population Selection PNC (State-Normalized)',
+                xlabel='Population Selection NS (State-Normalized)',
                 ylabel='Inflation-Adjusted Change in Median Rent ($)',
-                filename=f'{level_short}_pop_pnc_vs_rent_change.pdf'
+                filename=f'{level_short}_pop_ns_vs_rent_change.pdf'
             )
 
         # Check for required columns for the Gini plot
         if gini_col and gini_col in df_merged.columns:
-             # Plot 2: Population PNC vs. Change in Gini
+             # Plot 2: Population NS vs. Change in Gini
             create_scatter_plot(
                 data=df_merged,
-                x_col=pop_pnc_col,
+                x_col=pop_ns_col,
                 y_col=gini_col,
                 size_col=size_col,
                 color_col=color_col,
                 title=f'{level.title()} Level: Population Selection vs. Change in Gini',
-                xlabel='Population Selection PNC (State-Normalized)',
+                xlabel='Population Selection NS (State-Normalized)',
                 ylabel='Change in Gini Coefficient',
-                filename=f'{level_short}_pop_pnc_vs_gini_change.pdf'
+                filename=f'{level_short}_pop_ns_vs_gini_change.pdf'
             )
             
             # --- Sanity Check Plot ---
-            # Plot 3: Income PNC vs. Change in Gini
-            inc_pnc_col = 'Sel_tr_from_bg_inc_PNC_st'
-            if inc_pnc_col in df_merged.columns:
+            # Plot 3: Income NS vs. Change in Gini
+            inc_ns_col = 'Sel_tr_from_bg_inc_ns_st'
+            if inc_ns_col in df_merged.columns:
                 create_scatter_plot(
                     data=df_merged,
-                    x_col=inc_pnc_col,
+                    x_col=inc_ns_col,
                     y_col=gini_col,
                     size_col=size_col,
                     color_col=color_col,
                     title=f'{level.title()} Level: Income Selection vs. Change in Gini (Sanity Check)',
-                    xlabel='Income Selection PNC (State-Normalized)',
+                    xlabel='Income Selection NS (State-Normalized)',
                     ylabel='Change in Gini Coefficient',
-                    filename=f'{level_short}_inc_pnc_vs_gini_change_sanity_check.pdf'
+                    filename=f'{level_short}_inc_ns_vs_gini_change_sanity_check.pdf'
                 )
             else:
-                print(f"  Skipping sanity check plot: Missing column '{inc_pnc_col}'")
+                print(f"  Skipping sanity check plot: Missing column '{inc_ns_col}'")
         else:
             print("  Skipping Gini plot due to missing data or calculation failure.")
 
-        # Plot 4: Population PNC vs. Change in Theil Index (if available)
+        # Plot 4: Population NS vs. Change in Theil Index (if available)
         if theil_change_data is not None:
             # Merge Theil change data with the main tract data
             df_merged_with_theil = pd.merge(df_merged, theil_change_data[['GEOID', 'theil_change']], on='GEOID', how='inner')
@@ -576,14 +577,14 @@ def main():
             if 'theil_change' in df_merged_with_theil.columns and len(df_merged_with_theil) > 20:
                 create_scatter_plot(
                     data=df_merged_with_theil,
-                    x_col=pop_pnc_col,
+                    x_col=pop_ns_col,
                     y_col='theil_change',
                     size_col=size_col,
                     color_col=color_col,
                     title=f'{level.title()} Level: Population Selection vs. Change in Theil Index',
-                    xlabel='Population Selection PNC (State-Normalized)',
+                    xlabel='Population Selection NS (State-Normalized)',
                     ylabel='Change in Theil Index (2016-2021)',
-                    filename=f'{level_short}_pop_pnc_vs_theil_change.pdf'
+                    filename=f'{level_short}_pop_ns_vs_theil_change.pdf'
                 )
             else:
                 print("  Skipping Theil change plot due to insufficient data.")

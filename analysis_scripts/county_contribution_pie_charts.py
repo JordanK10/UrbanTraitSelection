@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
+plt.rcParams.update({'text.usetex': True, 'font.family': 'serif', 'font.serif': ['Computer Modern Roman']})
 import sys
 
 # Check for 'null' argument to switch directories

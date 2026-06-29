@@ -3,17 +3,18 @@
 inequality_scatter.py
 
 Creates scatter plots of:
-1. Relative Empirical Growth Rate vs Cumulative Income PNC_st
-2. Relative Empirical Growth Rate vs Cumulative Population PNC_st
+1. Relative Empirical Growth Rate vs Cumulative Income NS_st
+2. Relative Empirical Growth Rate vs Cumulative Population NS_st
 
 Points are colored by population growth rate with custom colorbar.
-Reads community income data and computes cumulative PNC values similar to specialty_histogram2.py
+Reads community income data and computes cumulative NS values similar to specialty_histogram2.py
 """
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+plt.rcParams.update({'text.usetex': True, 'font.family': 'serif', 'font.serif': ['Computer Modern Roman']})
 import os
 import sys
 import warnings
@@ -169,7 +170,7 @@ def create_scatter_plot(x_data, y_data, color_data, x_label, y_label, color_labe
     
 
     # input(x_label)
-    if x_label == "Cumulative Income PNC_st":
+    if x_label == "Cumulative Income NS_st":
         ax.set_xlim(left=-75)
 
     # Grid
@@ -220,13 +221,13 @@ def run_analysis(input_dir, base_output_dir):
         print("Available columns:", list(cm_data.columns))
         return
     
-    # Compute cumulative income PNC_st
-    print("\nComputing cumulative income PNC_st...")
-    cm_inc_pnc = extract_sum_cm(cm_data, 'Transmitted_Sel_tr_to_cm_inc_PNC_st', 'Sel_cm_from_tr_inc_PNC_st', scale=1)
+    # Compute cumulative income NS_st
+    print("\nComputing cumulative income NS_st...")
+    cm_inc_ns = extract_sum_cm(cm_data, 'Transmitted_Sel_tr_to_cm_inc_ns_st', 'Sel_cm_from_tr_inc_ns_st', scale=1)
     
     # Compute cumulative population PNC_st  
     print("Computing cumulative population PNC_st...")
-    cm_pop_pnc = extract_sum_cm(cm_data, 'Transmitted_Sel_tr_to_cm_pop_PNC_st', 'Sel_cm_from_tr_pop_PNC_st', scale=1)
+    cm_pop_ns = extract_sum_cm(cm_data, 'Transmitted_Sel_tr_to_cm_pop_ns_st', 'Sel_cm_from_tr_pop_ns_st', scale=1)
     
     pop_initial_cm = cm_data['PopInitial_cm'] if 'PopInitial_cm' in cm_data.columns else None
 
@@ -235,32 +236,32 @@ def run_analysis(input_dir, base_output_dir):
     # Create scatter plots
     print("\nCreating scatter plots...")
     
-    # Plot 1: Relative Empirical Growth Rate vs Income PNC_st (axes reversed)
+    # Plot 1: Relative Empirical Growth Rate vs Income NS_st (axes reversed)
     create_scatter_plot(
-        x_data=cm_inc_pnc,
+        x_data=cm_inc_ns,
         y_data=rel_inc_growth,
         color_data=pop_growth,
         size_data=pop_initial_cm,
-        x_label="Cumulative Income PNC_st",
+        x_label="Cumulative Income NS_st",
         y_label="Relative Income-Averaged Growth Rate",
         color_label="Relative Initial Income",
-        title="Relative Empirical Growth Rate vs Income PNC_st",
-        filename="rel_growth_vs_income_pnc.pdf",
+        title="Relative Empirical Growth Rate vs Income NS_st",
+        filename="rel_growth_vs_income_ns.pdf",
         base_output_dir=base_output_dir,
         label=cm_label
     )
     
-    # Plot 2: Relative Empirical Growth Rate vs Population PNC_st (axes reversed)
+    # Plot 2: Relative Empirical Growth Rate vs Population NS_st (axes reversed)
     create_scatter_plot(
-        x_data=cm_pop_pnc,
+        x_data=cm_pop_ns,
         y_data=rel_pop_growth,
         color_data=pop_growth,
         size_data=pop_initial_cm,
-        x_label="Cumulative Population PNC_st", 
+        x_label="Cumulative Population NS_st", 
         y_label="Relative Population-Averaged Growth Rate",
         color_label="Relative Initial Income",
-        title="Relative Empirical Growth Rate vs Population PNC_st",
-        filename="rel_growth_vs_population_pnc.pdf",
+        title="Relative Empirical Growth Rate vs Population NS_st",
+        filename="rel_growth_vs_population_ns.pdf",
         base_output_dir=base_output_dir,
         label=cm_label
     )
@@ -269,8 +270,8 @@ def run_analysis(input_dir, base_output_dir):
     print(f"INEQUALITY SCATTER ANALYSIS COMPLETE FOR {input_dir}")
     print("="*60)
     print("Generated plots:")
-    print(f"1. {os.path.join(base_output_dir, 'inequality_scatter_plots', 'rel_growth_vs_income_pnc.pdf')}")
-    print(f"2. {os.path.join(base_output_dir, 'inequality_scatter_plots', 'rel_growth_vs_population_pnc.pdf')}")
+    print(f"1. {os.path.join(base_output_dir, 'inequality_scatter_plots', 'rel_growth_vs_income_ns.pdf')}")
+    print(f"2. {os.path.join(base_output_dir, 'inequality_scatter_plots', 'rel_growth_vs_population_ns.pdf')}")
 
 # --- Main execution ---
 def main():

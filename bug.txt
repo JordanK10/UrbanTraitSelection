@@ -1,0 +1,112 @@
+BUG: Price decomposition terms don't sum to 1 (msa_normalized_selection_summary.pdf / Graph 4D)
+=================================================================================================
+
+CONTEXT
+-------
+The Price equation decomposition is designed as an exact additive identity:
+
+    AvgG_pop_parent = Sel_parent_from_child_pop + Transmitted_AvgG_child_to_parent_pop
+
+...recursively, at every level (bg -> tr -> cm -> ct -> st). Because of this, each
+level's selection term, normalized by the same aggregate (LHS) growth rate, should
+sum to 1 across the full hierarchy. In Graph 4D (msa_normalized_selection_summary.pdf)
+the bottom row (omega_j^p) does not sum to 1, which correctly indicates a real bug
+in the calculation pipeline, not just a display/framing issue.
+
+VERIFICATION METHOD
+-------------------
+runPrice.py already contains a built-in identity check for exactly this property:
+  - LHS_AvgG_pop_{level}: independently recomputed "actual observed growth"
+    (Z_P_prime - Z_P) / target_n, using population-weighted average log income
+    at the final year vs. the initial year.
+  - AvgG_pop_{level}: the recursively reconstructed value
+    (Sel_{level}_from_{child}_pop + Transmitted_AvgG_{child}_to_{level}_pop).
+  - These two should be identical if the decomposition is implemented correctly.
+
+Checked on the current 2014-2023 run (output_terms/all_decomposition_results.pkl):
+
+    tr: max|LHS-RHS| = 0.00000000   <- PERFECT, exact identity holds
+    cm: max|LHS-RHS| = 0.96768686   <- badly broken
+    ct: max|LHS-RHS| = 0.39888198   <- also broken
+    st: max|LHS-RHS| = 0.05982396
+
+The decomposition is mathematically exact at the tract level (where recent
+boundary-mismatch fixes were applied) but breaks down starting at the community
+level, one level above.
+
+ROOT CAUSE (confirmed for the worst offender)
+----------------------------------------------
+Worst single mismatch: community "YORKVILLE" (cm level).
+  LHS_AvgG_pop_cm = 0.967158   (implausible: ~9x jump in log income over 9 years)
+  AvgG_pop_cm     = -0.000529  (the recursively reconstructed value)
+
+Traced to YORKVILLE's two tract children:
+  17093890400: PopInitial_tr=26962.99  AvgLogIncInitial_tr=NaN   <- the culprit
+  17093890600: PopInitial_tr=9526.61   AvgLogIncInitial_tr=11.113696 (valid)
+
+Both tracts have valid PopFinal_tr and valid AvgLogIncFinal_tr (no NaN on the
+final-year side at all).
+
+Mechanism:
+  Z_P (initial-year weighted avg) is computed as:
+      grp['c_p_c_P_grp'] = PopInitial_tr / pop_sum_of_children
+      Z_P = (c_p_c_P_grp * AvgLogIncInitial_tr).sum()
+
+  pandas' .sum() silently SKIPS NaN terms but does NOT renormalize the
+  remaining weights. Tract 17093890400 carries ~74% of the group's population
+  weight. Because its AvgLogIncInitial_tr is NaN, that 74% weight simply
+  vanishes from the Z_P sum -- it is not excluded-and-renormalized, it just
+  disappears, leaving Z_P computed off only the remaining 26% weight without
+  rescaling.
+
+  Z_P_prime (final-year side) has no NaN, so it is a normal, fully-weighted
+  average (~11.6, sensible).
+
+  Result: comparing a "missing 74% of its weight" initial value (~2.9) against
+  a "fully weighted" final value (~11.6) produces a nonsensical
+  (Z_P_prime - Z_P)/target_n ~= 0.967 -- exactly matching the observed anomaly.
+
+SCOPE
+-----
+Only 1 tract out of 1902 (17093890400) currently has this specific NaN
+(AvgLogIncInitial_tr). But because the mechanism silently truncates weights
+instead of properly excluding-and-renormalizing, a single bad input is enough
+to corrupt its entire parent group's (and potentially that group's parent's)
+aggregate value by an arbitrarily large margin. This is a structural weakness
+in the weighting logic, not a one-off data issue -- it could resurface with
+any future timeframe or data gap that introduces even one NaN income value
+into a group.
+
+This NaN-weighting bug is DIFFERENT from (and unrelated to) the BG-level
+boundary-mismatch / crosswalk work done earlier in this project. That work
+fixed Sel_tr_from_bg_pop NaN (151 -> 2 tracts). This bug affects the
+LHS/RHS additivity check starting at the cm level and up, via NaN propagation
+in weighted-average income computations.
+
+STILL OPEN / NOT YET DONE
+--------------------------
+1. Confirm exactly WHERE tract 17093890400 gets AvgLogIncInitial_tr = NaN.
+   Its own BG-level children (170938904002/003/004) all have valid,
+   non-NaN AvgLogInc values at the BG level. So the NaN must be introduced
+   later -- likely in build_level_panel/prepare_level_data for the
+   independently-fetched 'tr' level data, or in the
+   _recursively_calculate_avg_log_income() bottom-up correction step
+   (possible index/temp_tract_id mismatch). This was being traced when the
+   investigation was paused.
+
+2. Decide on and implement the general fix: in _part_b_parent_group_aggregates
+   (Z_P calculation) and the LHS check's Z_P_prime calculation, NaN-income
+   children should be DROPPED from the group BEFORE computing population
+   shares, so weights are renormalized over only the valid remaining
+   children -- instead of the current behavior of silently vanishing from
+   the weighted sum without renormalization.
+
+3. Re-verify the LHS vs RHS check across all levels (tr/cm/ct/st) after the
+   fix, and re-check whether Graph 4D's omega row now sums to 1 (modulo any
+   residual, much smaller approximation differences) once both the NaN-income
+   tract is fixed at its source AND the weight-renormalization fix is applied.
+
+4. ct-level discrepancy (max 0.399) and st-level (0.060) should also be
+   re-checked after the above two fixes -- it's not yet confirmed whether
+   they share the same root cause (NaN income propagating up) or have a
+   separate contributing issue.

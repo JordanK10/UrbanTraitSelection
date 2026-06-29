@@ -9,6 +9,7 @@ levels of geographic aggregation (block group, tract, community, county, state).
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+plt.rcParams.update({'text.usetex': True, 'font.family': 'serif', 'font.serif': ['Computer Modern Roman']})
 import os
 import sys
 import warnings
@@ -154,6 +155,10 @@ def create_line_plot_with_confidence(stats_data, figsize=(4.5, 1.75)):
         
         # Population growth rate data
         if stats['population'] is not None:
+            pop_means.append(stats['population']['mean'])
+            pop_stds.append(stats['population']['std'])
+            pop_ci_margins.append(stats['population']['ci_95_margin'])
+        else:
             pop_means.append(np.nan)
             pop_stds.append(np.nan)
             pop_ci_margins.append(np.nan)
@@ -170,27 +175,28 @@ def create_line_plot_with_confidence(stats_data, figsize=(4.5, 1.75)):
     emp_ci_margins_clean = np.array(emp_ci_margins)
     valid_emp = ~np.isnan(emp_means_clean)
     
+    emp_stds_clean = np.array(emp_stds)
     if np.any(valid_emp):
-        ax.plot(emp_means_clean[valid_emp], np.array(y_positions)[valid_emp], 
-                color=custom_purple, marker='o', linewidth=2, markersize=6, 
+        ax.plot(emp_means_clean[valid_emp], np.array(y_positions)[valid_emp],
+                color=custom_purple, marker='o', linewidth=2, markersize=6,
                 label='Empirical Growth Rate')
-        ax.fill_betweenx(np.array(y_positions)[valid_emp], 
-                        (emp_means_clean - emp_ci_margins_clean)[valid_emp],
-                        (emp_means_clean + emp_ci_margins_clean)[valid_emp],
+        ax.fill_betweenx(np.array(y_positions)[valid_emp],
+                        (emp_means_clean - emp_stds_clean)[valid_emp],
+                        (emp_means_clean + emp_stds_clean)[valid_emp],
                         color=custom_purple, alpha=0.2)
-    
+
     # Plot population growth rate
     pop_means_clean = np.array(pop_means)
-    pop_ci_margins_clean = np.array(pop_ci_margins)
+    pop_stds_clean = np.array(pop_stds)
     valid_pop = ~np.isnan(pop_means_clean)
-    
+
     if np.any(valid_pop):
-        ax.plot(pop_means_clean[valid_pop], np.array(y_positions)[valid_pop], 
+        ax.plot(pop_means_clean[valid_pop], np.array(y_positions)[valid_pop],
                 color=custom_orange, marker='s', linewidth=2, markersize=6,
                 label='Population Growth Rate')
-        ax.fill_betweenx(np.array(y_positions)[valid_pop], 
-                        (pop_means_clean - pop_ci_margins_clean)[valid_pop],
-                        (pop_means_clean + pop_ci_margins_clean)[valid_pop],
+        ax.fill_betweenx(np.array(y_positions)[valid_pop],
+                        (pop_means_clean - pop_stds_clean)[valid_pop],
+                        (pop_means_clean + pop_stds_clean)[valid_pop],
                         color=custom_orange, alpha=0.2)
     
     # Customize the plot (flipped axes)

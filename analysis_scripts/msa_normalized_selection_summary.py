@@ -4,6 +4,7 @@ import pickle
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+plt.rcParams.update({'text.usetex': True, 'font.family': 'serif', 'font.serif': ['Computer Modern Roman']})
 import os
 import re
 import sys
@@ -151,7 +152,7 @@ def create_msa_normalized_summary_plot(decomposition_results):
     # 4. Create the final DataFrame for the heatmap
     df_plot = pd.DataFrame(summary_rows).set_index('Level').T
     
-    # 5. Plotting, using the same style as the LDR variation summary
+    # 5. Plotting, using the same style as the MSS variation summary
     custom_cmap = LinearSegmentedColormap.from_list('custom_white_orange', ['white', CUSTOM_ORANGE])
     
     _plot_summary_heatmap(

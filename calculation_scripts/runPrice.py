@@ -12,7 +12,7 @@ Pipeline
 3. Join initial-year (14) and final-year (19) DataFrames per level —
    no intermediate analysis_Price2.pkl needed.
 4. prepare_level_data  →  calculate_multilevel_price_decomposition
-5. calculate_pnc_and_ldr_metrics  →  export CSVs + all_decomposition_results.pkl
+5. calculate_ns_and_mss_metrics  →  export CSVs + all_decomposition_results.pkl
 """
 
 import pandas as pd
@@ -61,7 +61,7 @@ def _recursively_calculate_avg_log_income(incomes_data):
     CHILD_PARENT_LINK = {
         'bg': ('tr', 'temp_tract_id'),
         'tr': ('cm', 'community'),
-        'cm': ('ct', 'county'),   # 'county' on cm rows is 5-digit state+county FIPS
+        'cm': ('ct', 'county'),
         'ct': ('st', 'state'),
     }
     for yr in sorted(incomes_data.keys()):
@@ -74,26 +74,40 @@ def _recursively_calculate_avg_log_income(incomes_data):
                     or 'population' not in df_child.columns:
                 continue
             df_child = df_child.copy()
-            df_child['_wt'] = df_child['population'] * df_child['AvgLogInc']
 
-            # For cm→ct: the ct index is the composite state+county FIPS (e.g. '17031'),
-            # but the 'county' column on cm rows may be 3-digit if the pkl was produced
-            # before the FIPS-normalisation fix.  Build the composite key explicitly so
-            # the groupby key always matches the ct index regardless of pkl vintage.
+            # For cm→ct: cm['county'] may be either 3-digit or already 5-digit FIPS
+            # depending on pkl vintage.  Normalise to 5-digit so the groupby key always
+            # matches the ct index.  Only prepend state when county is not yet 5 digits.
             if child_level == 'cm' and 'state' in df_child.columns and 'county' in df_child.columns:
-                df_child['_link'] = (df_child['state'].astype(str).str.strip()
-                                     + df_child['county'].astype(str).str.strip().str.zfill(3))
+                county_str = df_child['county'].astype(str).str.strip()
+                state_str  = df_child['state'].astype(str).str.strip()
+                needs_prefix = county_str.str.len() < 5
+                df_child['_link'] = county_str
+                df_child.loc[needs_prefix, '_link'] = (
+                    state_str[needs_prefix] + county_str[needs_prefix].str.zfill(3)
+                )
                 actual_link_col = '_link'
             else:
                 actual_link_col = link_col
 
+            # Drop children with NaN AvgLogInc before computing the weighted average
+            # so that missing-income units don't silently truncate group weights.
+            df_child = df_child[df_child['AvgLogInc'].notna() & (df_child['population'] > 0)]
+            if df_child.empty:
+                continue
+
+            df_child['_wt'] = df_child['population'] * df_child['AvgLogInc']
             grouped = df_child.groupby(actual_link_col).agg(
                 _pop=('population', 'sum'),
                 _wt=('_wt', 'sum'),
             )
             grouped['corrected'] = grouped['_wt'] / grouped['_pop']
+
             df_parent = df_parent.copy()
-            df_parent['AvgLogInc'] = df_parent.index.map(grouped['corrected'])
+            corrected = df_parent.index.map(grouped['corrected'])
+            # Only overwrite where the map succeeded; preserve existing values for
+            # parents whose children produced no valid match (avoids clobbering with NaN).
+            df_parent['AvgLogInc'] = corrected.where(corrected.notna(), df_parent['AvgLogInc'])
             incomes_data[yr][parent_level] = df_parent
     return incomes_data
 
@@ -473,8 +487,14 @@ def _part_a_initial_child_preparation(df_child, child_level_name):
 
 
 def _part_b_parent_group_aggregates(grp, names):
-    pop_sum = grp[names['pop_initial']].sum()
-    grp['c_p_c_P_grp'] = grp[names['pop_initial']] / pop_sum if pop_sum != 0 else 0.0
+    # Drop children with NaN trait before computing shares so missing-income units
+    # don't silently vanish from the weighted sum while their population weight remains.
+    valid = grp[grp[names['avg_log_inc_initial']].notna() &
+                grp[names['actual_avg_inc_initial']].notna()]
+    pop_sum = valid[names['pop_initial']].sum()
+    grp['c_p_c_P_grp'] = 0.0
+    if pop_sum != 0:
+        grp.loc[valid.index, 'c_p_c_P_grp'] = valid[names['pop_initial']] / pop_sum
     W_P  = (grp['c_p_c_P_grp'] * grp['c_w_c']).sum()
     Z_P  = (grp['c_p_c_P_grp'] * grp[names['avg_log_inc_initial']]).sum()
     mu_P = (grp['c_p_c_P_grp'] * grp[names['actual_avg_inc_initial']]).sum()
@@ -635,17 +655,19 @@ def calculate_single_parent_level_terms(df_child, child_level, parent_level,
             full_hierarchy, W_P, mu_P)
 
         # LHS AvgG_pop (single-level sanity check)
+        # Restrict to children with valid final-year trait, renormalizing weights,
+        # so the Z_P_prime computation is symmetric with the Z_P computation in Part B.
         avg_g_pop_val = np.nan
-        if log_avg_inc_fin_col in grp.columns and pop_fin_col in grp.columns \
-                and target_n > 0:
-            pop_fin_sum = grp[pop_fin_col].sum()
+        avg_log_fin_col = names['avg_log_inc_initial'].replace('Initial', 'Final')
+        if pop_fin_col in grp.columns and avg_log_fin_col in grp.columns and target_n > 0:
+            valid_fin = grp[grp[avg_log_fin_col].notna()]
+            pop_fin_sum = valid_fin[pop_fin_col].sum()
             if pop_fin_sum > 0:
-                grp['c_p_prime'] = grp[pop_fin_col] / pop_fin_sum
-                avg_log_fin_col = names['avg_log_inc_initial'].replace('Initial', 'Final')
-                if avg_log_fin_col in grp.columns:
-                    Z_P_prime = (grp['c_p_prime'] * grp[avg_log_fin_col]).sum()
-                    if pd.notna(Z_P_prime) and pd.notna(Z_P):
-                        avg_g_pop_val = (Z_P_prime - Z_P) / target_n
+                valid_fin = valid_fin.copy()
+                valid_fin['c_p_prime'] = valid_fin[pop_fin_col] / pop_fin_sum
+                Z_P_prime = (valid_fin['c_p_prime'] * valid_fin[avg_log_fin_col]).sum()
+                if pd.notna(Z_P_prime) and pd.notna(Z_P):
+                    avg_g_pop_val = (Z_P_prime - Z_P) / target_n
 
         # Fitness-weighted transmission of child direct growth (single-level RHS)
         trans_direct_gro = np.nan
@@ -803,15 +825,15 @@ def calculate_multilevel_price_decomposition(prepared_level_data, base_level,
     return results
 
 
-def calculate_pnc_and_ldr_metrics(decomp_results, full_hierarchy,
+def calculate_ns_and_mss_metrics(decomp_results, full_hierarchy,
                                   child_to_parent_id_map, base_level):
     """
-    Post-processing: Local Dominance Ratio (LDR) and
-    Parent-Normalized Contribution (PNC) for every component at every level.
+    Post-processing: Magnitude Share of Selection (MSS) and
+    Normalized Selection (NS) for every component at every level.
     """
-    print("  Calculating LDR and PNC metrics...")
+    print("  Calculating MSS and NS metrics...")
 
-    # ── LDR ──────────────────────────────────────────────────────────────────
+    # ── MSS ──────────────────────────────────────────────────────────────────
     for i, level_name in enumerate(full_hierarchy):
         df_lvl = decomp_results.get(level_name)
         if df_lvl is None or df_lvl.empty or i < 1:
@@ -826,17 +848,17 @@ def calculate_pnc_and_ldr_metrics(decomp_results, full_hierarchy,
                     c.startswith('Transmitted_AvgG_') or
                     c.startswith('Transmitted_AggG_'))
                 and c.endswith(f'_to_{level_name}{path}')
-                and not c.endswith('_LDR') and '_PNC' not in c
+                and not c.endswith('_mss') and '_ns' not in c
             ]
             comp_cols = sorted(set(comp_cols))
             if not comp_cols:
                 continue
             denom = df_lvl[comp_cols].abs().sum(axis=1).replace(0, np.nan)
             for cc in comp_cols:
-                df_lvl[f'{cc}_LDR'] = (df_lvl[cc].abs() / denom) * 100
+                df_lvl[f'{cc}_mss'] = (df_lvl[cc].abs() / denom) * 100
         decomp_results[level_name] = df_lvl
 
-    # ── PNC ──────────────────────────────────────────────────────────────────
+    # ── NS ──────────────────────────────────────────────────────────────────
     ancestor_growth = {}
     for level_name in full_hierarchy:
         df_anc = decomp_results.get(level_name)
@@ -872,7 +894,7 @@ def calculate_pnc_and_ldr_metrics(decomp_results, full_hierarchy,
         comp_cols = [c for c in df_lvl.columns
                      if (c.startswith('Sel_') or c.startswith('Transmitted_'))
                      and ('_pop' in c or '_inc' in c)
-                     and not c.endswith('_LDR') and '_PNC' not in c]
+                     and not c.endswith('_mss') and '_ns' not in c]
 
         for j in range(i, len(full_hierarchy)):
             anc_name = full_hierarchy[j]
@@ -884,30 +906,30 @@ def calculate_pnc_and_ldr_metrics(decomp_results, full_hierarchy,
                 '_pop': df_aug[pop_d].replace(0, np.nan),
                 '_inc': df_aug[inc_d].replace(0, np.nan),
             }
-            pnc_sfx = '_PNC' if anc_name == level_name else f'_PNC_{anc_name}'
+            ns_sfx = '_ns' if anc_name == level_name else f'_ns_{anc_name}'
             for cc in comp_cols:
                 path = '_pop' if '_pop' in cc else '_inc'
                 if cc in df_aug.columns:
-                    df_aug[f'{cc}{pnc_sfx}'] = \
+                    df_aug[f'{cc}{ns_sfx}'] = \
                         (df_aug[cc] / denoms[path]) * 100
 
-        # Cumulative selection + its PNC
+        # Cumulative selection + its NS
         for path in ['_pop', '_inc']:
             sel_cols = [c for c in df_aug.columns
                         if (c.startswith(f'Sel_{level_name}_from_') or
                             c.startswith('Transmitted_Sel_'))
                         and c.endswith(f'_to_{level_name}{path}' if
                                        c.startswith('Transmitted_') else path)
-                        and not c.endswith('_LDR') and '_PNC' not in c]
+                        and not c.endswith('_mss') and '_ns' not in c]
             # Direct own-level sel cols don't end with '_to_...'
             own_sel_cols = [c for c in df_aug.columns
                             if c.startswith(f'Sel_{level_name}_from_')
                             and c.endswith(path)
-                            and not c.endswith('_LDR') and '_PNC' not in c]
+                            and not c.endswith('_mss') and '_ns' not in c]
             trans_sel_cols = [c for c in df_aug.columns
                               if c.startswith('Transmitted_Sel_')
                               and c.endswith(f'_to_{level_name}{path}')
-                              and not c.endswith('_LDR') and '_PNC' not in c]
+                              and not c.endswith('_mss') and '_ns' not in c]
             all_sel = sorted(set(own_sel_cols + trans_sel_cols))
             if not all_sel:
                 continue
@@ -918,12 +940,12 @@ def calculate_pnc_and_ldr_metrics(decomp_results, full_hierarchy,
                     anc_name = full_hierarchy[j]
                     d_col = f'AvgG{path}_{anc_name}'
                     if d_col in df_aug.columns:
-                        pnc_sfx = '_PNC' if anc_name == level_name \
-                            else f'_PNC_{anc_name}'
-                        pnc_col = f'{cum_name}{pnc_sfx}'
-                        if pnc_col not in df_aug.columns:
+                        ns_sfx = '_ns' if anc_name == level_name \
+                            else f'_ns_{anc_name}'
+                        ns_col = f'{cum_name}{ns_sfx}'
+                        if ns_col not in df_aug.columns:
                             denom = df_aug[d_col].replace(0, np.nan)
-                            df_aug[pnc_col] = (df_aug[cum_name] / denom) * 100
+                            df_aug[ns_col] = (df_aug[cum_name] / denom) * 100
 
         # Drop merge artifacts
         df_aug.drop(columns=[c for c in df_aug.columns
@@ -966,10 +988,10 @@ def _export_results(all_results):
                     potential.append(c)
 
             existing = list(dict.fromkeys(c for c in potential if c in df_lvl.columns))
-            raw_cols = [c for c in existing if not c.endswith('_LDR') and '_PNC' not in c]
-            ldr_cols = sorted(c for c in existing if c.endswith('_LDR'))
-            pnc_cols = sorted(c for c in existing if '_PNC' in c)
-            final_cols = raw_cols + ldr_cols + pnc_cols
+            raw_cols = [c for c in existing if not c.endswith('_mss') and '_ns' not in c]
+            mss_cols = sorted(c for c in existing if c.endswith('_mss'))
+            ns_cols = sorted(c for c in existing if '_ns' in c)
+            final_cols = raw_cols + mss_cols + ns_cols
 
             if not final_cols:
                 continue
@@ -1013,7 +1035,7 @@ def main():
             prepared_level_data, base, HIERARCHY_LEVELS,
             CHILD_TO_PARENT_ID_COL_MAP, TARGET_N, incomes_data,
         )
-        all_results[base] = calculate_pnc_and_ldr_metrics(
+        all_results[base] = calculate_ns_and_mss_metrics(
             results, HIERARCHY_LEVELS, CHILD_TO_PARENT_ID_COL_MAP, base,
         )
 

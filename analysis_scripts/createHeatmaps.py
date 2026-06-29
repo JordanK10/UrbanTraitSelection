@@ -4,6 +4,7 @@ import pickle
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+plt.rcParams.update({'text.usetex': True, 'font.family': 'serif', 'font.serif': ['Computer Modern Roman']})
 import os
 import re
 import sys
@@ -39,8 +40,8 @@ def load_pickle_data(filepath):
 
 def clean_column_names(col_name):
     """Creates human-readable labels for heatmap columns from the raw column names."""
-    # First, strip any metric suffix like _LDR or _GIR
-    col_name_base = re.sub(r'(_LDR|_GIR|_PNC)$', '', col_name)
+    # First, strip any metric suffix like _mss or _GIR
+    col_name_base = re.sub(r'(_mss|_GIR|_ns)$', '', col_name)
 
     # Regular expression to parse the column names
     sel_match = re.match(r"Sel_(\w+)_from_(\w+)", col_name_base)
@@ -65,41 +66,41 @@ def clean_column_names(col_name):
     # Fallback for any names that don't match
     return col_name_base.replace('_', ' ').title()
 
-def prepare_ldr_heatmap_data(df_for_level, path_suffix):
+def prepare_mss_heatmap_data(df_for_level, path_suffix):
     """
-    Extracts pre-calculated LDR columns (which are absolute percentages)
+    Extracts pre-calculated MSS columns (which are absolute percentages)
     and prepares the data for heatmap plotting.
     """
     if df_for_level.empty:
         return None
 
-    # 1. Find all LDR columns for the given path (_pop or _inc).
+    # 1. Find all MSS columns for the given path (_pop or _inc).
     # These are unsigned percentages (0-100).
-    ldr_cols = sorted([col for col in df_for_level.columns if col.endswith(f'{path_suffix}_LDR')])
+    mss_cols = sorted([col for col in df_for_level.columns if col.endswith(f'{path_suffix}_mss')])
     
-    if not ldr_cols:
+    if not mss_cols:
         return None
 
-    # 2. Extract the LDR data.
+    # 2. Extract the MSS data.
     # Set index to UnitName for alignment and for the final plot.
     df_indexed = df_for_level.set_index('UnitName')
     
-    df_ldr = df_indexed[ldr_cols].copy()
+    df_mss = df_indexed[mss_cols].copy()
     
     # 3. Clean up column names for the plot.
-    clean_names = [clean_column_names(col) for col in df_ldr.columns]
-    df_ldr.columns = clean_names
+    clean_names = [clean_column_names(col) for col in df_mss.columns]
+    df_mss.columns = clean_names
     
     # 4. Explicitly rename the generic 'Selection (LVL)' to 'Selection'
-    sel_col_to_rename = [col for col in df_ldr.columns if col.startswith('Selection (')]
+    sel_col_to_rename = [col for col in df_mss.columns if col.startswith('Selection (')]
     if sel_col_to_rename:
-        df_ldr.rename(columns={sel_col_to_rename[0]: 'Selection'}, inplace=True)
+        df_mss.rename(columns={sel_col_to_rename[0]: 'Selection'}, inplace=True)
 
     # These are the desired columns for the final plot, in order.
     final_cols_in_order = ['Selection', 'Transmitted Sel. (CM)', 'Transmitted Sel. (CT)', 'Transmitted Sel. (TR)', 'Transmitted Growth (BG)']
 
     # --- Reorder columns to place Transmitted Growth last ---
-    cols = df_ldr.columns.tolist()
+    cols = df_mss.columns.tolist()
     trans_popwth_col = None
     for col in cols:
         if "Transmitted Growth" in col:
@@ -108,14 +109,14 @@ def prepare_ldr_heatmap_data(df_for_level, path_suffix):
     if trans_popwth_col:
         cols.remove(trans_popwth_col)
         cols.append(trans_popwth_col)
-        df_ldr = df_ldr[cols]
+        df_mss = df_mss[cols]
 
-    return df_ldr
+    return df_mss
 
-def prepare_pnc_heatmap_data(df_for_level, target_level, path_suffix, hierarchy_levels_list, self_normalize=False):
+def prepare_ns_heatmap_data(df_for_level, target_level, path_suffix, hierarchy_levels_list, self_normalize=False):
     """
-    Prepares a DataFrame with PNC values for plotting.
-    If self_normalize is True, it uses PNC values relative to the unit's own total growth.
+    Prepares a DataFrame with NS values for plotting.
+    If self_normalize is True, it uses NS values relative to the unit's own total growth.
     Otherwise, it defaults to using values relative to the immediate parent.
     """
     if df_for_level.empty:
@@ -123,53 +124,53 @@ def prepare_pnc_heatmap_data(df_for_level, target_level, path_suffix, hierarchy_
 
     # 1. Determine the level to normalize against.
     if self_normalize:
-        pnc_suffix_for_filter = "_PNC"
-        print(f"  Note (prepare_pnc_heatmap_data): Using self-normalized PNC values for '{target_level}'.")
+        ns_suffix_for_filter = "_ns"
+        print(f"  Note (prepare_ns_heatmap_data): Using self-normalized NS values for '{target_level}'.")
     else:
         try:
             current_level_idx = hierarchy_levels_list.index(target_level)
             if current_level_idx == len(hierarchy_levels_list) - 1:
-                parent_level_for_pnc = target_level
+                parent_level_for_ns = target_level
             else:
-                parent_level_for_pnc = hierarchy_levels_list[current_level_idx + 1]
+                parent_level_for_ns = hierarchy_levels_list[current_level_idx + 1]
         except ValueError:
-            print(f"  Error (prepare_pnc_heatmap_data): Target level '{target_level}' not in hierarchy.")
+            print(f"  Error (prepare_ns_heatmap_data): Target level '{target_level}' not in hierarchy.")
             return None
         
-        pnc_suffix_for_filter = f"_PNC_{parent_level_for_pnc}" if parent_level_for_pnc != target_level else "_PNC"
+        ns_suffix_for_filter = f"_ns_{parent_level_for_ns}" if parent_level_for_ns != target_level else "_ns"
     
-    # Regex to find all relevant PNC columns for the specified path and normalization level
-    pnc_cols_regex = f"^(Sel|Transmitted).+({path_suffix}){pnc_suffix_for_filter}$"
+    # Regex to find all relevant NS columns for the specified path and normalization level
+    ns_cols_regex = f"^(Sel|Transmitted).+({path_suffix}){ns_suffix_for_filter}$"
     
-    pnc_cols_to_use = [col for col in df_for_level.columns if re.match(pnc_cols_regex, col)]
+    ns_cols_to_use = [col for col in df_for_level.columns if re.match(ns_cols_regex, col)]
 
-    if not pnc_cols_to_use:
-        print(f"  Warning (prepare_pnc_heatmap_data): No PNC columns matching regex '{pnc_cols_regex}' found for path '{path_suffix}' in level '{target_level}'.")
+    if not ns_cols_to_use:
+        print(f"  Warning (prepare_ns_heatmap_data): No NS columns matching regex '{ns_cols_regex}' found for path '{path_suffix}' in level '{target_level}'.")
         return None
 
-    # Construct PNC column names and find the ones that actually exist
-    pnc_cols_to_use = sorted(list(set(pnc_cols_to_use)))
+    # Construct NS column names and find the ones that actually exist
+    ns_cols_to_use = sorted(list(set(ns_cols_to_use)))
     
-    if not pnc_cols_to_use or 'UnitName' not in df_for_level.columns:
+    if not ns_cols_to_use or 'UnitName' not in df_for_level.columns:
         return None
 
-    # --- Create the PNC value dataframe ---
-    df_pnc = df_for_level[['UnitName'] + pnc_cols_to_use].set_index('UnitName')
+    # --- Create the NS value dataframe ---
+    df_ns = df_for_level[['UnitName'] + ns_cols_to_use].set_index('UnitName')
     
     # 3. Clean up column names for the plot.
-    clean_names = [clean_column_names(col) for col in df_pnc.columns]
-    df_pnc.columns = clean_names
+    clean_names = [clean_column_names(col) for col in df_ns.columns]
+    df_ns.columns = clean_names
     
     # 4. Explicitly rename the generic 'Selection (LVL)' to 'Selection'
-    sel_col_to_rename = [col for col in df_pnc.columns if col.startswith('Selection (')]
+    sel_col_to_rename = [col for col in df_ns.columns if col.startswith('Selection (')]
     if sel_col_to_rename:
-        df_pnc.rename(columns={sel_col_to_rename[0]: 'Selection'}, inplace=True)
+        df_ns.rename(columns={sel_col_to_rename[0]: 'Selection'}, inplace=True)
 
     # These are the desired columns for the final plot, in order.
     final_cols_in_order = ['Selection', 'Transmitted Sel. (CM)', 'Transmitted Sel. (CT)', 'Transmitted Sel. (TR)', 'Transmitted Growth (BG)']
     
     # --- Reorder columns to place Transmitted Growth last ---
-    cols = df_pnc.columns.tolist()
+    cols = df_ns.columns.tolist()
     trans_popwth_col = None
     for col in cols:
         if "Transmitted Growth" in col:
@@ -178,9 +179,9 @@ def prepare_pnc_heatmap_data(df_for_level, target_level, path_suffix, hierarchy_
     if trans_popwth_col:
         cols.remove(trans_popwth_col)
         cols.append(trans_popwth_col)
-        df_pnc = df_pnc[cols]
+        df_ns = df_ns[cols]
 
-    return df_pnc
+    return df_ns
 
 def get_custom_colormap_and_bounds(df):
     """
@@ -260,13 +261,13 @@ def plot_heatmap(df, title, output_filename=None, ax=None):
             print(f"    Error saving heatmap to {output_filename}: {e}")
         plt.close(fig)
 
-def plot_pnc_heatmap(df, title, output_filename=None, ax=None):
+def plot_ns_heatmap(df, title, output_filename=None, ax=None):
     """
-    Generates and saves a heatmap of Parent-Normalized Contribution (PNC) values.
+    Generates and saves a heatmap of Normalized Selection (NS) values.
     Can plot to a file or a provided Matplotlib Axes object.
     """
     if df is None or df.empty:
-        # print(f"    Cannot plot PNC heatmap for '{title}'; data is empty.")
+        # print(f"    Cannot plot NS heatmap for '{title}'; data is empty.")
         return
 
     # Create the custom diverging colormap and bounds
@@ -284,7 +285,7 @@ def plot_pnc_heatmap(df, title, output_filename=None, ax=None):
         "fmt": ".1f", # One decimal place for percentages
         "cmap": custom_cmap,
         "linewidths": .5,
-        'cbar_kws': {'label': 'Parent-Normalized Contribution (%)', 'extend': 'both'},
+        'cbar_kws': {'label': 'Normalized Selection (%)', 'extend': 'both'},
         'vmin': vmin,
         'vmax': vmax,
     }
@@ -410,28 +411,28 @@ def _plot_summary_heatmap(df_to_plot, title, output_path, cmap, vmin, vmax):
 
 def create_combined_summary_plot(df, level, output_dir, file_name, plot_title):
     """
-    Creates a single, consolidated heatmap for a given region, showing LDR and PNC
+    Creates a single, consolidated heatmap for a given region, showing MSS and NS
     for both population and income paths, using row-normalization for coloring.
     """
     print(f"  Generating combined summary plot for {plot_title} (saving to {output_dir})...")
     os.makedirs(output_dir, exist_ok=True)
 
     # Determine if this is a special case for self-normalization (e.g., Cook County summary)
-    self_normalize_pnc = 'Cook County' in plot_title
+    self_normalize_ns = 'Cook County' in plot_title
 
     # 1. Prepare the four data series
-    ldr_pop = prepare_ldr_heatmap_data(df, '_pop')
-    ldr_inc = prepare_ldr_heatmap_data(df, '_inc')
-    pnc_pop = prepare_pnc_heatmap_data(df, level, '_pop', HIERARCHY_LEVELS, self_normalize=self_normalize_pnc)
-    pnc_inc = prepare_pnc_heatmap_data(df, level, '_inc', HIERARCHY_LEVELS, self_normalize=self_normalize_pnc)
+    ldr_pop = prepare_mss_heatmap_data(df, '_pop')
+    ldr_inc = prepare_mss_heatmap_data(df, '_inc')
+    pnc_pop = prepare_ns_heatmap_data(df, level, '_pop', HIERARCHY_LEVELS, self_normalize=self_normalize_ns)
+    pnc_inc = prepare_ns_heatmap_data(df, level, '_inc', HIERARCHY_LEVELS, self_normalize=self_normalize_ns)
 
     # Extract the first (and only) row of data for the single entity
     # and handle cases where data might be missing.
     data_series = {
-        'LDR (Population)': ldr_pop.iloc[0] if ldr_pop is not None and not ldr_pop.empty else pd.Series(dtype=float),
-        'PNC (Population)': pnc_pop.iloc[0] if pnc_pop is not None and not pnc_pop.empty else pd.Series(dtype=float),
-        'LDR (Income)': ldr_inc.iloc[0] if ldr_inc is not None and not ldr_inc.empty else pd.Series(dtype=float),
-        'PNC (Income)': pnc_inc.iloc[0] if pnc_inc is not None and not pnc_inc.empty else pd.Series(dtype=float),
+        'MSS (Population)': ldr_pop.iloc[0] if ldr_pop is not None and not ldr_pop.empty else pd.Series(dtype=float),
+        'NS (Population)': pnc_pop.iloc[0] if pnc_pop is not None and not pnc_pop.empty else pd.Series(dtype=float),
+        'MSS (Income)': ldr_inc.iloc[0] if ldr_inc is not None and not ldr_inc.empty else pd.Series(dtype=float),
+        'NS (Income)': pnc_inc.iloc[0] if pnc_inc is not None and not pnc_inc.empty else pd.Series(dtype=float),
     }
     
     # 2. Combine into a single DataFrame and clean up
@@ -467,7 +468,7 @@ def create_combined_summary_plot(df, level, output_dir, file_name, plot_title):
         vmax=vmax
     )
 
-def create_ldr_variation_summary_plot(decomposition_results, output_dir, file_name, plot_title, levels_to_plot, cook_county_only=False):
+def create_mss_variation_summary_plot(decomposition_results, output_dir, file_name, plot_title, levels_to_plot, cook_county_only=False):
     """
     Creates a heatmap summarizing the mean and standard deviation of the "Total Selection Dominance"
     across different spatial levels. Total Selection Dominance for a unit is the sum of the LDRs
@@ -499,22 +500,22 @@ def create_ldr_variation_summary_plot(decomposition_results, output_dir, file_na
         level_summary = {'Level': level.capitalize()}
 
         for path_suffix, path_name in [('_pop', 'Population'), ('_inc', 'Income')]:
-            # Find all LDR columns that represent selection terms
-            ldr_sel_cols = [
+            # Find all MSS columns that represent selection terms
+            mss_sel_cols = [
                 c for c in df_level.columns 
                 if (c.startswith('Sel_') or c.startswith('Transmitted_Sel_')) 
-                and c.endswith(f'{path_suffix}_LDR')
+                and c.endswith(f'{path_suffix}_mss')
             ]
             
 
             
-            if not ldr_sel_cols:
+            if not mss_sel_cols:
                 level_summary[f'{path_name}_Mean'] = np.nan
                 level_summary[f'{path_name}_Std'] = np.nan
                 continue
 
             # For each unit, sum the LDRs of its selection terms
-            df_level['TotalSelLDR'] = df_level[ldr_sel_cols].sum(axis=1)
+            df_level['TotalSelMSS'] = df_level[mss_sel_cols].sum(axis=1)
             
             # Get weights (Initial Population) for weighted stats
             pop_col = f'PopInitial_{level}'
@@ -522,17 +523,17 @@ def create_ldr_variation_summary_plot(decomposition_results, output_dir, file_na
 
             # Handle edge case with only one unit (e.g., state level)
             if len(df_level) == 1:
-                mean = df_level['TotalSelLDR'].iloc[0]
+                mean = df_level['TotalSelMSS'].iloc[0]
                 std = 0.0
             elif weights is not None and not weights.isnull().all() and weights.sum() > 0:
                 # Calculate weighted mean and std dev
-                mean = np.average(df_level['TotalSelLDR'], weights=weights)
-                variance = np.average((df_level['TotalSelLDR'] - mean)**2, weights=weights)
+                mean = np.average(df_level['TotalSelMSS'], weights=weights)
+                variance = np.average((df_level['TotalSelMSS'] - mean)**2, weights=weights)
                 std = np.sqrt(variance)
             else:
                 # Fallback to unweighted if weights are missing or invalid
-                mean = df_level['TotalSelLDR'].mean()
-                std = df_level['TotalSelLDR'].std()
+                mean = df_level['TotalSelMSS'].mean()
+                std = df_level['TotalSelMSS'].std()
 
             level_summary[f'{path_name}_Mean'] = mean
             level_summary[f'{path_name}_Std'] = std
@@ -540,7 +541,7 @@ def create_ldr_variation_summary_plot(decomposition_results, output_dir, file_na
         summary_rows.append(level_summary)
 
     if not summary_rows:
-        print(f"Cannot generate LDR variation plot for {plot_title}, no data found.")
+        print(f"Cannot generate MSS variation plot for {plot_title}, no data found.")
         return
 
     # Create the final DataFrame for the heatmap
@@ -569,7 +570,7 @@ def create_ldr_variation_summary_plot(decomposition_results, output_dir, file_na
         vmax=None
     )
     
-    print(f"  Successfully saved LDR variation summary to {output_path}")
+    print(f"  Successfully saved MSS variation summary to {output_path}")
 
 def run_analysis(input_dir, base_output_dir):
     """
@@ -637,8 +638,8 @@ def run_analysis(input_dir, base_output_dir):
     #             print(f"    Could not determine parent level for '{level}', skipping histograms.")
     #             continue
 
-    #         pnc_suffix = f'_PNC_{parent_level_short_name}'
-    #         ldr_suffix = '_LDR'
+    #         ns_suffix = f'_ns_{parent_level_short_name}'
+    #         ldr_suffix = '_mss'
 
     #         cols_to_histogram = []
             
@@ -650,10 +651,10 @@ def run_analysis(input_dir, base_output_dir):
     #             is_for_level = f'_{level}_from_' in col or f'_to_{level}' in col
 
     #             if is_sel_or_trans and is_for_level:
-    #                 # Check if it is a raw term, an LDR term, or a PNC term relative to immediate parent
-    #                 is_raw_value = '_LDR' not in col and '_PNC' not in col
+    #                 # Check if it is a raw term, an MSS term, or a NS term relative to immediate parent
+    #                 is_raw_value = '_mss' not in col and '_ns' not in col
     #                 is_ldr_value = col.endswith(ldr_suffix)
-    #                 is_pnc_value = col.endswith(pnc_suffix)
+    #                 is_pnc_value = col.endswith(ns_suffix)
                     
     #                 if is_raw_value or is_ldr_value or is_pnc_value:
     #                     cols_to_histogram.append(col)
@@ -702,19 +703,19 @@ def run_analysis(input_dir, base_output_dir):
     #                 df_ranked = df_filtered_for_county.sort_values(by=rank_col_name, ascending=False)
     #                 df_top_10 = df_ranked.head(10)
 
-    #                 # --- Plot 1: Local Dominance (Using LDR Columns) ---
-    #                 ldr_heatmap_data = prepare_ldr_heatmap_data(df_top_10, path)
+    #                 # --- Plot 1: Local Dominance (Using MSS Columns) ---
+    #                 ldr_heatmap_data = prepare_mss_heatmap_data(df_top_10, path)
     #                 if ldr_heatmap_data is not None and not ldr_heatmap_data.empty:
-    #                     title = f'Local Dominance (LDR) in {parent_level_name.title()} {safe_parent_id_str}\n(Top 10 by {rank_key.replace("_", " ").title()}, {path_name} Path)'
+    #                     title = f'Local Dominance (MSS) in {parent_level_name.title()} {safe_parent_id_str}\n(Top 10 by {rank_key.replace("_", " ").title()}, {path_name} Path)'
     #                     output_file = os.path.join(county_report_dir, f'ldr_heatmap_{path_name.lower()}_ranked_by_{rank_key}.pdf')
     #                     plot_heatmap(ldr_heatmap_data, title, output_file)
 
-    #                 # --- Plot 2: Parent-Normalized Contribution (PNC) ---
-    #                 pnc_heatmap_data = prepare_pnc_heatmap_data(df_top_10, level, path, HIERARCHY_LEVELS)
+    #                 # --- Plot 2: Normalized Selection (NS) ---
+    #                 pnc_heatmap_data = prepare_ns_heatmap_data(df_top_10, level, path, HIERARCHY_LEVELS)
     #                 if pnc_heatmap_data is not None and not pnc_heatmap_data.empty:
-    #                     title = f'Parent-Normalized Contribution in {parent_level_name.title()} {safe_parent_id_str}\n(Top 10 by {rank_key.replace("_", " ").title()}, {path_name} Path)'
+    #                     title = f'Normalized Selection in {parent_level_name.title()} {safe_parent_id_str}\n(Top 10 by {rank_key.replace("_", " ").title()}, {path_name} Path)'
     #                     output_file = os.path.join(county_report_dir, f'pnc_heatmap_{path_name.lower()}_ranked_by_{rank_key}.pdf')
-    #                     plot_pnc_heatmap(pnc_heatmap_data, title, output_file)
+    #                     plot_ns_heatmap(pnc_heatmap_data, title, output_file)
 
     # # --- NEW: Create the "Ultimate Plot" for selected Chicago Communities ---
     # print("\n--- Generating Ultimate Plot for Selected Chicago Communities ---")
@@ -743,8 +744,8 @@ def run_analysis(input_dir, base_output_dir):
             
     #         level = 'cm'
     #         parent_level_short_name = 'ct' # Parent of cm is ct
-    #         pnc_suffix = f'_PNC_{parent_level_short_name}'
-    #         ldr_suffix = '_LDR'
+    #         ns_suffix = f'_ns_{parent_level_short_name}'
+    #         ldr_suffix = '_mss'
             
     #         cols_to_histogram = []
             
@@ -753,9 +754,9 @@ def run_analysis(input_dir, base_output_dir):
     #             is_for_level = f'_{level}_from_' in col or f'_to_{level}' in col
 
     #             if is_sel_or_trans and is_for_level:
-    #                 is_raw_value = '_LDR' not in col and '_PNC' not in col
+    #                 is_raw_value = '_mss' not in col and '_ns' not in col
     #                 is_ldr_value = col.endswith(ldr_suffix)
-    #                 is_pnc_value = col.endswith(pnc_suffix)
+    #                 is_pnc_value = col.endswith(ns_suffix)
                     
     #                 if is_raw_value or is_ldr_value or is_pnc_value:
     #                     cols_to_histogram.append(col)
@@ -780,27 +781,27 @@ def run_analysis(input_dir, base_output_dir):
     #         for path in ['_pop', '_inc']:
     #             path_name = "Population" if path == '_pop' else "Income"
                 
-    #             # --- Dominance Plot (using LDR columns) ---
-    #             ldr_data_ultimate = prepare_ldr_heatmap_data(
+    #             # --- Dominance Plot (using MSS columns) ---
+    #             ldr_data_ultimate = prepare_mss_heatmap_data(
     #                 df_selected_communities, 
     #                 path
     #             )
     #             if ldr_data_ultimate is not None and not ldr_data_ultimate.empty:
-    #                 title = f'Local Dominance (LDR) for Selected Chicago Communities\n({path_name} Path)'
+    #                 title = f'Local Dominance (MSS) for Selected Chicago Communities\n({path_name} Path)'
     #                 output_file = os.path.join(OUTPUT_DIR, f'ultimate_plot_ldr_chicago_{path_name.lower()}.pdf')
     #                 plot_heatmap(ldr_data_ultimate, title, output_file)
 
-    #             # --- Raw Values Plot is now PNC Plot ---
-    #             pnc_data_ultimate = prepare_pnc_heatmap_data(
+    #             # --- Raw Values Plot is now NS Plot ---
+    #             pnc_data_ultimate = prepare_ns_heatmap_data(
     #                 df_selected_communities,
     #                 'cm',
     #                 path,
     #                 HIERARCHY_LEVELS
     #             )
     #             if pnc_data_ultimate is not None and not pnc_data_ultimate.empty:
-    #                 title = f'Parent-Normalized Contribution for Selected Chicago Communities\n({path_name} Path)'
+    #                 title = f'Normalized Selection for Selected Chicago Communities\n({path_name} Path)'
     #                 output_file = os.path.join(OUTPUT_DIR, f'ultimate_plot_pnc_chicago_{path_name.lower()}.pdf')
-    #                 plot_pnc_heatmap(pnc_data_ultimate, title, output_file)
+    #                 plot_ns_heatmap(pnc_data_ultimate, title, output_file)
 
     # except (KeyError, TypeError):
     #     print("  Could not generate ultimate plot: Data for base 'bg' and level 'cm' not found.")
@@ -813,7 +814,6 @@ def run_analysis(input_dir, base_output_dir):
         df_st_full = decomposition_results[BASE_ANALYSIS_LEVEL]['st']
         if not df_st_full.empty:
             state_summary_dir = os.path.join(OUTPUT_DIR, 'st_summary')
-            input(df_st_full)
             create_combined_summary_plot(
                 df=df_st_full,
                 level='st',
@@ -843,30 +843,30 @@ def run_analysis(input_dir, base_output_dir):
         print(f"  Could not generate state-level summary reports: {e}")
     # --- END State-level Summary ---
 
-    # --- NEW: Generating LDR Variation Summary Plots ---
-    print("\n--- Generating LDR Variation Summary Plots ---")
+    # --- NEW: Generating MSS Variation Summary Plots ---
+    print("\n--- Generating MSS Variation Summary Plots ---")
     try:
         # State-level summary
-        create_ldr_variation_summary_plot(
+        create_mss_variation_summary_plot(
             decomposition_results=decomposition_results[BASE_ANALYSIS_LEVEL],
             output_dir=os.path.join(OUTPUT_DIR, 'st_summary'),
             file_name='state_ldr_variation_summary.pdf',
-            plot_title='State-Level LDR Selection Dominance Variation',
+            plot_title='State-Level MSS Selection Dominance Variation',
             levels_to_plot=['tr', 'cm', 'ct', 'st'],
             cook_county_only=False
         )
         
         # Cook County summary
-        create_ldr_variation_summary_plot(
+        create_mss_variation_summary_plot(
             decomposition_results=decomposition_results[BASE_ANALYSIS_LEVEL],
             output_dir=os.path.join(OUTPUT_DIR, 'st_summary', 'cook_county'),
             file_name='cook_county_ldr_variation_summary.pdf',
-            plot_title='Cook County LDR Selection Dominance Variation',
+            plot_title='Cook County MSS Selection Dominance Variation',
             levels_to_plot=['tr', 'cm', 'ct'],
             cook_county_only=True
         )
     except (KeyError, TypeError) as e:
-        print(f"  Could not generate LDR variation summary reports: {e}")
+        print(f"  Could not generate MSS variation summary reports: {e}")
     # --- END NEW ---
 
     print("\n--- Plot Generation Complete ---")

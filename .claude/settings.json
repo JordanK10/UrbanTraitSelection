@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 calculation_scripts/runPrice.py)",
+      "Bash(python3 analysis_scripts/createHeatmaps.py)",
+      "Bash(python3 analysis_scripts/variance_by_level.py)",
+      "Bash(awk -F: '{print $1}')",
+      "Bash(python3 analysis_scripts/selection_summary_heatmaps.py)",
+      "Bash(python3 -c \"import matplotlib.font_manager as fm; fonts = [f.name for f in fm.fontManager.ttflist]; cm_fonts = [f for f in fonts if 'Computer Modern' in f or 'CMU' in f or 'cm-' in f.lower\\(\\)]; print\\(cm_fonts[:20]\\)\")",
+      "Bash(git -C /Users/kempj/Documents/UrbanTraitSelection ls-files --others --cached --exclude-standard)",
+      "Bash(grep -E \"\\\\.\\(pdf|csv|pkl\\)$\")",
+      "Bash(git -C /Users/kempj/Documents/UrbanTraitSelection ls-files)",
+      "Bash(git -C /Users/kempj/Documents/UrbanTraitSelection remote -v)"
+    ]
+  }
+}

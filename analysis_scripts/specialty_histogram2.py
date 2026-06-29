@@ -2,15 +2,16 @@
 """
 specialty_histogram2.py
 
-Plots four histograms (inc PNC, inc LDR, pop PNC, pop LDR):
+Plots four histograms (inc NS, inc MSS, pop NS, pop MSS):
 - For community: sum transmitted and selection terms for each variable
 - For tract: use the selection term for each variable
-- Overlay both on the same axes, with the correct fit (Student t for PNC_st, Beta for LDR)
+- Overlay both on the same axes, with the correct fit (Student t for PNC_st, Beta for MSS)
 """
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+plt.rcParams.update({'text.usetex': True, 'font.family': 'serif', 'font.serif': ['Computer Modern Roman']})
 import os
 import math
 import sys
@@ -498,27 +499,27 @@ def plot_hist_log_scale(cm, tr, name, dist_type):
 # --- Main logic ---
 if cm_data is not None and tr_data is not None:
     # inc PNC_st
-    cm_inc_pnc = extract_tr(cm_data, 'Sel_cm_from_tr_inc_PNC_st', scale=1)
-    tr_inc_pnc = extract_tr(tr_data, 'Sel_tr_from_bg_inc_PNC_st',scale=1)
-    plot_hist(cm_inc_pnc, tr_inc_pnc, 'Income PNC_st', 'skewt')
-    plot_hist_log_scale(cm_inc_pnc, tr_inc_pnc, 'Income PNC_st', 'skewt')
+    cm_inc_ns = extract_tr(cm_data, 'Sel_cm_from_tr_inc_ns_st', scale=1)
+    tr_inc_ns = extract_tr(tr_data, 'Sel_tr_from_bg_inc_ns_st',scale=1)
+    plot_hist(cm_inc_ns, tr_inc_ns, 'Income NS_st', 'skewt')
+    plot_hist_log_scale(cm_inc_ns, tr_inc_ns, 'Income NS_st', 'skewt')
 
-    # inc LDR
-    cm_inc_ldr = extract_tr(cm_data, 'Sel_cm_from_tr_inc_LDR', scale=1)
-    tr_inc_ldr = extract_tr(tr_data, 'Sel_tr_from_bg_inc_LDR', scale=1)
-    plot_hist(cm_inc_ldr, tr_inc_ldr, 'Income LDR', 'gamma')
-    plot_hist_log_scale(cm_inc_ldr, tr_inc_ldr, 'Income LDR', 'gamma')
+    # inc MSS
+    cm_inc_mss = extract_tr(cm_data, 'Sel_cm_from_tr_inc_mss', scale=1)
+    tr_inc_mss = extract_tr(tr_data, 'Sel_tr_from_bg_inc_mss', scale=1)
+    plot_hist(cm_inc_mss, tr_inc_mss, 'Income MSS', 'gamma')
+    plot_hist_log_scale(cm_inc_mss, tr_inc_mss, 'Income MSS', 'gamma')
 
     # pop PNC_st
-    cm_pop_pnc = extract_tr(cm_data, 'Sel_cm_from_tr_pop_PNC_st', scale=1)
-    tr_pop_pnc = extract_tr(tr_data, 'Sel_tr_from_bg_pop_PNC_st',scale=1  )
-    plot_hist(cm_pop_pnc, tr_pop_pnc, 'Population PNC_st', 'skewt')
-    plot_hist_log_scale(cm_pop_pnc, tr_pop_pnc, 'Population PNC_st', 'skewt')
+    cm_pop_ns = extract_tr(cm_data, 'Sel_cm_from_tr_pop_ns_st', scale=1)
+    tr_pop_ns = extract_tr(tr_data, 'Sel_tr_from_bg_pop_ns_st',scale=1  )
+    plot_hist(cm_pop_ns, tr_pop_ns, 'Population NS_st', 'skewt')
+    plot_hist_log_scale(cm_pop_ns, tr_pop_ns, 'Population NS_st', 'skewt')
 
-    # pop LDR
-    cm_pop_ldr = extract_tr(cm_data, 'Sel_cm_from_tr_pop_LDR', scale=1)
-    tr_pop_ldr = extract_tr(tr_data, 'Sel_tr_from_bg_pop_LDR', scale=1)
-    plot_hist(cm_pop_ldr, tr_pop_ldr, 'Population LDR', 'gamma')
-    plot_hist_log_scale(cm_pop_ldr, tr_pop_ldr, 'Population LDR', 'gamma')
+    # pop MSS
+    cm_pop_mss = extract_tr(cm_data, 'Sel_cm_from_tr_pop_mss', scale=1)
+    tr_pop_mss = extract_tr(tr_data, 'Sel_tr_from_bg_pop_mss', scale=1)
+    plot_hist(cm_pop_mss, tr_pop_mss, 'Population MSS', 'gamma')
+    plot_hist_log_scale(cm_pop_mss, tr_pop_mss, 'Population MSS', 'gamma')
 else:
     print("Error: Could not load required data files.") 
